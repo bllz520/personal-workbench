@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>个人工作台</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+<style>
+:root{
+  --bg:#f4f6fb; --panel:#ffffff; --panel-2:#f8fafc; --ink:#1f2937; --ink-2:#6b7280;
+  --line:#e5e7eb; --line-2:#d1d5db; --brand:#2563eb; --brand-d:#1d4ed8; --brand-soft:#dbeafe;
+  --green:#16a34a; --green-soft:#dcfce7; --amber:#d97706; --amber-soft:#fef3c7;
+  --red:#dc2626; --red-soft:#fee2e2; --purple:#7c3aed; --purple-soft:#ede9fe;
+  --radius:12px; --shadow:0 1px 3px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.04);
+  --shadow-lg:0 10px 40px rgba(0,0,0,.18); --sidebar-w:240px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--bg); color:var(--ink); font-size:14px; line-height:1.55;}
+button{font-family:inherit; cursor:pointer}
+input,select,textarea{font-family:inherit; font-size:14px}
+a{color:var(--brand); text-decoration:none}
+
+/* layout */
+.app{display:flex; min-height:100vh}
+.sidebar{width:var(--sidebar-w); background:var(--panel); border-right:1px solid var(--line);
+  display:flex; flex-direction:column; position:fixed; top:0; bottom:0; left:0; z-index:40; overflow-y:auto;}
+.sidebar .brand{padding:18px 18px 12px; font-weight:700; font-size:17px; color:var(--brand);
+  display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--line);}
+.brand .logo{width:26px;height:26px;border-radius:7px;background:var(--brand);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:15px}
+.nav{padding:10px 8px; flex:1}
+.nav-group-title{padding:10px 12px 4px; font-size:11px; color:var(--ink-2); text-transform:uppercase; letter-spacing:.5px}
+.nav-item{display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:9px; color:var(--ink);
+  cursor:pointer; margin:2px 0; user-select:none; transition:.15s; font-size:14px}
+.nav-item:hover{background:var(--panel-2)}
+.nav-item.active{background:var(--brand-soft); color:var(--brand-d); font-weight:600}
+.nav-item .ico{width:20px; text-align:center}
+.nav-item .caret{margin-left:auto; transition:.2s}
+.nav-item.collapsed .caret{transform:rotate(-90deg)}
+.nav-children{margin-left:14px; border-left:1px dashed var(--line-2); padding-left:4px}
+.nav-children .nav-item{font-size:13px; padding:7px 10px}
+.sidebar .foot{padding:10px 14px; font-size:11px; color:var(--ink-2); border-top:1px solid var(--line)}
+
+.main{margin-left:var(--sidebar-w); flex:1; display:flex; flex-direction:column; min-width:0}
+.topbar{position:sticky; top:0; z-index:30; background:rgba(255,255,255,.92);
+  backdrop-filter:blur(6px); border-bottom:1px solid var(--line); padding:10px 18px;
+  display:flex; align-items:center; gap:14px}
+.hamburger{display:none; background:none; border:1px solid var(--line); border-radius:8px; padding:6px 9px; font-size:16px}
+.topbar h1{font-size:16px; margin:0; font-weight:700}
+.topbar .spacer{flex:1}
+.topbar .meta{font-size:12px; color:var(--ink-2)}
+
+/* dashboard bar */
+.dashbar{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; padding:16px 18px 4px}
+.metric{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px; box-shadow:var(--shadow)}
+.metric .label{font-size:12px; color:var(--ink-2)}
+.metric .value{font-size:26px; font-weight:800; margin-top:4px}
+.metric .sub{font-size:11px; color:var(--ink-2)}
+.metric.c1 .value{color:var(--brand)} .metric.c2 .value{color:var(--green)}
+.metric.c3 .value{color:var(--purple)} .metric.c4 .value{color:var(--amber)}
+
+.view{padding:14px 18px 60px; flex:1}
+.view-head{display:flex; align-items:center; gap:12px; margin:6px 0 16px; flex-wrap:wrap}
+.view-head h2{margin:0; font-size:20px}
+.view-head .spacer{flex:1}
+.btn{background:var(--panel); border:1px solid var(--line-2); color:var(--ink); padding:8px 14px;
+  border-radius:9px; font-size:13px; transition:.15s; display:inline-flex; align-items:center; gap:6px}
+.btn:hover{border-color:var(--brand); color:var(--brand)}
+.btn.primary{background:var(--brand); border-color:var(--brand); color:#fff}
+.btn.primary:hover{background:var(--brand-d); color:#fff}
+.btn.danger{background:#fff; border-color:var(--red); color:var(--red)}
+.btn.danger:hover{background:var(--red); color:#fff}
+.btn.sm{padding:5px 10px; font-size:12px}
+.btn.ghost{background:transparent; border-color:transparent; color:var(--ink-2)}
+.btn.ghost:hover{color:var(--brand); border-color:transparent}
+
+/* cards / lists */
+.card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow)}
+.grid{display:grid; gap:14px}
+.cols-2{grid-template-columns:repeat(2,1fr)}
+.cols-3{grid-template-columns:repeat(3,1fr)}
+.row{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.list{display:flex; flex-direction:column; gap:10px}
+.item{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px 14px;
+  display:flex; align-items:flex-start; gap:12px; transition:.15s}
+.item:hover{border-color:var(--line-2)}
+.item .chk{width:20px;height:20px;margin-top:2px;flex:none;cursor:pointer}
+.item .body{flex:1; min-width:0}
+.item .title{font-weight:600; word-break:break-word}
+.item .title.done{text-decoration:line-through; color:var(--ink-2)}
+.item .meta{font-size:12px; color:var(--ink-2); margin-top:3px; display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.tag{display:inline-block; padding:1px 8px; border-radius:999px; font-size:11px; font-weight:600}
+.tag.p-high{background:var(--red-soft); color:var(--red)}
+.tag.p-mid{background:var(--amber-soft); color:var(--amber)}
+.tag.p-low{background:var(--green-soft); color:var(--green)}
+.tag.cat{background:var(--brand-soft); color:var(--brand-d)}
+.tag.stat-todo{background:var(--amber-soft); color:var(--amber)}
+.tag.stat-doing{background:var(--brand-soft); color:var(--brand-d)}
+.tag.stat-done{background:var(--green-soft); color:var(--green)}
+.tag.sev-high{background:var(--red-soft); color:var(--red)}
+.tag.sev-mid{background:var(--amber-soft); color:var(--amber)}
+.tag.sev-low{background:var(--green-soft); color:var(--green)}
+.item .ops{display:flex; gap:6px; flex:none}
+.empty{padding:40px; text-align:center; color:var(--ink-2); border:1px dashed var(--line-2); border-radius:12px}
+
+/* tabs */
+.tabs{display:flex; gap:6px; border-bottom:1px solid var(--line); margin-bottom:14px}
+.tab{padding:9px 14px; border:none; background:none; color:var(--ink-2); font-size:14px; border-bottom:2px solid transparent}
+.tab.active{color:var(--brand); border-bottom-color:var(--brand); font-weight:600}
+
+/* table */
+.table-wrap{overflow-x:auto; border:1px solid var(--line); border-radius:12px; background:var(--panel)}
+table{width:100%; border-collapse:collapse; font-size:13px}
+th,td{padding:10px 12px; text-align:left; border-bottom:1px solid var(--line); white-space:nowrap}
+th{background:var(--panel-2); font-weight:600; color:var(--ink-2); position:sticky; top:0}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--panel-2)}
+td .ops{display:flex; gap:6px}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+
+/* progress */
+.progress{height:8px; background:var(--line); border-radius:999px; overflow:hidden; min-width:120px}
+.progress > i{display:block; height:100%; background:linear-gradient(90deg,var(--brand),var(--green)); border-radius:999px}
+.progress-num{font-size:12px; color:var(--ink-2); min-width:38px; text-align:right}
+
+/* modal */
+.overlay{position:fixed; inset:0; background:rgba(15,23,42,.45); z-index:100; display:flex; align-items:center;
+  justify-content:center; padding:18px; animation:fade .15s ease}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.modal{background:var(--panel); border-radius:14px; box-shadow:var(--shadow-lg); width:min(560px,100%);
+  max-height:90vh; display:flex; flex-direction:column; overflow:hidden}
+.modal.wide{width:min(820px,100%)}
+.modal.full{width:min(960px,100%)}
+.modal .m-head{padding:16px 18px; border-bottom:1px solid var(--line); font-weight:700; font-size:16px;
+  display:flex; align-items:center; gap:8px}
+.modal .m-head .x{margin-left:auto; cursor:pointer; color:var(--ink-2); font-size:18px; border:none; background:none}
+.modal .m-body{padding:18px; overflow-y:auto}
+.modal .m-foot{padding:14px 18px; border-top:1px solid var(--line); display:flex; gap:10px; justify-content:flex-end; background:var(--panel-2)}
+.field{margin-bottom:13px}
+.field label{display:block; font-size:12px; color:var(--ink-2); margin-bottom:5px; font-weight:600}
+.field input,.field select,.field textarea{width:100%; padding:9px 11px; border:1px solid var(--line-2);
+  border-radius:9px; background:#fff; color:var(--ink)}
+.field textarea{resize:vertical; min-height:80px}
+.field .hint{font-size:11px; color:var(--ink-2); margin-top:4px}
+.field-row{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+.pw-wrap{display:flex; gap:8px; align-items:center}
+.pw-wrap input{flex:1}
+.strength{height:6px; border-radius:999px; background:var(--line); overflow:hidden; margin-top:6px}
+.strength > i{display:block; height:100%}
+
+/* toast */
+.toast-wrap{position:fixed; right:18px; bottom:18px; z-index:200; display:flex; flex-direction:column; gap:10px}
+.toast{background:var(--ink); color:#fff; padding:11px 16px; border-radius:10px; font-size:13px;
+  box-shadow:var(--shadow-lg); animation:slidein .2s ease; max-width:340px}
+.toast.ok{background:#166534} .toast.err{background:#991b1b} .toast.info{background:#1e3a8a}
+@keyframes slidein{from{transform:translateY(12px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+/* calendar */
+.cal-head{display:flex; align-items:center; gap:12px; margin-bottom:12px}
+.cal-head .mm{font-size:18px; font-weight:700; min-width:130px; text-align:center}
+.cal{display:grid; grid-template-columns:repeat(7,1fr); gap:6px}
+.cal .dow{text-align:center; font-size:12px; color:var(--ink-2); padding:4px 0; font-weight:600}
+.cal .day{background:var(--panel); border:1px solid var(--line); border-radius:10px; min-height:96px; padding:8px;
+  cursor:pointer; transition:.15s; position:relative; display:flex; flex-direction:column; gap:4px}
+.cal .day:hover{border-color:var(--brand)}
+.cal .day.other{opacity:.45}
+.cal .day.today{border-color:var(--brand); box-shadow:inset 0 0 0 1px var(--brand)}
+.cal .day.sel{background:var(--brand-soft)}
+.cal .day .dnum{font-weight:700; font-size:13px}
+.cal .day .dot{width:7px;height:7px;border-radius:50%;background:var(--brand);display:inline-block}
+.cal .day .dots{display:flex; gap:3px; flex-wrap:wrap; margin-top:auto}
+.cal .day .mini{font-size:11px; color:var(--ink-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.cal .day .pct{font-size:10px; color:var(--green); font-weight:700}
+
+/* detail panel */
+.detail .ditem{border:1px solid var(--line); border-radius:10px; padding:11px 13px; margin-bottom:10px}
+.detail .ditem .top{display:flex; gap:10px; align-items:flex-start}
+.detail .ditem .ttl{font-weight:600; flex:1}
+.detail .ditem .ttl.done{text-decoration:line-through; color:var(--ink-2)}
+.subtasks{margin-top:8px; padding-left:4px; display:flex; flex-direction:column; gap:5px}
+.subtask{display:flex; gap:8px; align-items:center; font-size:13px}
+.subtask.done span{text-decoration:line-through; color:var(--ink-2)}
+.stat-box{display:flex; gap:10px; flex-wrap:wrap; margin:10px 0}
+.stat-pill{background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:8px 12px; font-size:13px}
+.stat-pill b{display:block; font-size:18px}
+
+/* knowledge */
+.kb-card{border:1px solid var(--line); border-radius:10px; padding:12px 14px; background:var(--panel)}
+.kb-card h4{margin:0 0 4px; font-size:15px}
+.kb-card .content{color:var(--ink-2); font-size:13px; max-height:60px; overflow:hidden; white-space:pre-wrap}
+.search{width:100%; max-width:320px; padding:8px 12px; border:1px solid var(--line-2); border-radius:9px}
+
+/* misc */
+.hide{display:none!important}
+.muted{color:var(--ink-2)}
+.center{text-align:center}
+.md-pre{white-space:pre-wrap; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12.5px;
+  background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:14px; max-height:60vh; overflow:auto}
+.chip{display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:999px; background:var(--panel-2);
+  border:1px solid var(--line); font-size:12px; cursor:pointer}
+.chip.active{background:var(--brand); color:#fff; border-color:var(--brand)}
+.warn{background:var(--amber-soft); color:var(--amber); border:1px solid #fde68a; padding:8px 12px; border-radius:9px; font-size:12px}
+
+/* ============ 同步 / WebDAV ============ */
+.sync-box{border-top:1px solid var(--line); padding:6px 10px 10px}
+.sync-head{display:flex; align-items:center; gap:8px; cursor:pointer; padding:7px 4px; font-size:13px; color:var(--ink-2); font-weight:600; user-select:none}
+.sync-head .caret{margin-left:auto; transition:.2s}
+.sync-box.collapsed .caret{transform:rotate(-90deg)}
+.sync-box.collapsed .sync-body{display:none}
+.sync-body{padding:4px 2px 0}
+.sync-body .field{margin-bottom:9px}
+.sync-body .field input{padding:7px 10px}
+.sync-status{font-size:11px; color:var(--ink-2); margin-top:8px; padding:6px 9px; border-radius:8px; background:var(--panel-2); line-height:1.5}
+.sync-pill{display:inline-flex; align-items:center; gap:6px; padding:4px 11px; border-radius:999px; font-size:12px; font-weight:600; border:1px solid var(--line-2); background:var(--panel); white-space:nowrap}
+.sync-pill .dot{width:8px; height:8px; border-radius:50%; background:var(--ink-2)}
+.sync-pill.off{color:var(--ink-2)} .sync-pill.off .dot{background:var(--ink-2)}
+.sync-pill.ok{background:var(--green-soft); color:var(--green); border-color:#bbf7d0} .sync-pill.ok .dot{background:var(--green)}
+.sync-pill.syncing{background:var(--amber-soft); color:var(--amber); border-color:#fde68a} .sync-pill.syncing .dot{background:var(--amber)}
+.sync-pill.err{background:var(--red-soft); color:var(--red); border-color:#fecaca} .sync-pill.err .dot{background:var(--red)}
+
+/* responsive */
+@media(max-width:1100px){ .dashbar{grid-template-columns:repeat(2,1fr)} .cols-3{grid-template-columns:repeat(2,1fr)} }
+@media(max-width:860px){
+  .sidebar{transform:translateX(-100%); transition:.2s; box-shadow:var(--shadow-lg)}
+  .sidebar.open{transform:none}
+  .main{margin-left:0}
+  .hamburger{display:inline-flex}
+  .backdrop{position:fixed; inset:0; background:rgba(0,0,0,.3); z-index:39}
+  .cols-2,.cols-3{grid-template-columns:1fr}
+}
+@media(max-width:560px){
+  .dashbar{grid-template-columns:1fr 1fr; gap:10px}
+  .field-row{grid-template-columns:1fr}
+  .view{padding:12px 12px 60px}
+  .cal .day{min-height:70px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><span class="logo">🔧</span> 个人工作台</div>
+    <nav class="nav" id="nav"></nav>
+    <div class="sync-box collapsed" id="syncBox">
+      <div class="sync-head" id="syncHead"><span>☁️ 坚果云同步设置</span><span class="caret">▾</span></div>
+      <div class="sync-body" id="syncBody">
+        <div class="field"><label>服务器地址（代理网关 URL）</label><input id="cfgUrl" placeholder="https://xxx.apigw.tencentcs.com/release/wbproxy"></div>
+        <div class="field"><label>坚果云账号（邮箱）</label><input id="cfgUser" placeholder="your-email@example.com"></div>
+        <div class="field"><label>应用密码（第三方应用专用）</label>
+          <div style="position:relative"><input id="cfgPass" type="password" placeholder="坚果云 WebDAV 应用密码">
+          <button class="btn sm ghost" id="cfgShow" type="button" style="position:absolute;right:4px;top:3px;padding:3px 8px">👁️</button></div>
+        </div>
+        <div class="field"><label>共享密钥（可选，需与代理端一致）</label><input id="cfgSecret" placeholder="留空则不校验"></div>
+        <div class="row" style="margin:2px 0 4px">
+          <button class="btn primary sm" id="cfgSave">💾 保存配置</button>
+          <button class="btn sm" id="cfgTest">🔗 测试</button>
+          <button class="btn sm" id="cfgSync">🔄 立即同步</button>
+        </div>
+        <div class="sync-status" id="syncStatus">未配置</div>
+      </div>
+    </div>
+    <div class="foot">数据本地存储 · localStorage<br>加密：AES-256</div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <button class="hamburger" id="hamburger">☰</button>
+      <h1 id="viewTitle">个人工作台</h1>
+      <div class="spacer"></div>
+      <button class="btn sm" id="syncBtn" title="立即双向同步">🔄 同步</button>
+      <span class="sync-pill off" id="syncPill"><span class="dot"></span><span id="syncPillText">未配置</span></span>
+      <div class="meta" id="clock"></div>
+    </div>
+
+    <div class="dashbar" id="dashbar"></div>
+    <div class="view" id="view"></div>
+  </div>
+</div>
+
+<div id="modalRoot"></div>
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+"use strict";
+(function(){
+/* ============================ 工具层 ============================ */
+const $ = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+function nowISO(){ return new Date().toISOString(); }
+function fmtDate(d){ const x=new Date(d); const p=n=>String(n).padStart(2,'0'); return x.getFullYear()+'-'+p(x.getMonth()+1)+'-'+p(x.getDate()); }
+function todayKey(){ return fmtDate(new Date()); }
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function download(name, content, mime){
+  const blob = new Blob([content], {type:mime||'text/plain;charset=utf-8'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1500);
+}
+function copyText(t){
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(()=>toast('已复制到剪贴板','ok'),()=>fallbackCopy(t)); }
+  else fallbackCopy(t);
+}
+function fallbackCopy(t){ const ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy'); toast('已复制','ok');}catch(e){toast('复制失败','err');} ta.remove(); }
+
+/* ============================ 存储层 ============================ */
+const KEY={
+  todo:'todayTodos', focus:'tasks', month:'monthlyPlan', year:'yearlyArchive',
+  ip:'ipDevices', acc:'encryptedAccounts', url:'encryptedUrls',
+  dev:'deviceMaintenance', net:'networkMaintenance', know:'knowledge'
+};
+const Store={
+  get(k,d){ try{ const v=localStorage.getItem(k); return v==null? (d===undefined?null:d) : JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ localStorage.setItem(k, JSON.stringify(v)); },
+  del(k){ localStorage.removeItem(k); }
+};
+
+/* ============================ Toast ============================ */
+function toast(msg, type){
+  const w=$('#toastWrap'); const t=document.createElement('div');
+  t.className='toast '+(type||'info'); t.textContent=msg; w.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateY(8px)'; t.style.transition='.25s'; }, 2600);
+  setTimeout(()=>t.remove(), 2900);
+}
+
+/* ============================ Modal ============================ */
+function openModal(opts){
+  const root=$('#modalRoot');
+  const ov=document.createElement('div'); ov.className='overlay';
+  const m=document.createElement('div'); m.className='modal '+(opts.size||'');
+  m.innerHTML='<div class="m-head">'+(opts.title||'')+'<button class="x" title="关闭">✕</button></div>'+
+    '<div class="m-body"></div>'+
+    (opts.foot!==false?'<div class="m-foot"></div>':'');
+  ov.appendChild(m); root.appendChild(ov);
+  const body=m.querySelector('.m-body'); const foot=m.querySelector('.m-foot');
+  if(typeof opts.body==='string') body.innerHTML=opts.body; else if(opts.body) body.appendChild(opts.body);
+  const close=()=>{ ov.remove(); if(opts.onClose) opts.onClose(); };
+  m.querySelector('.x').onclick=close;
+  ov.addEventListener('mousedown', e=>{ if(e.target===ov && opts.dismiss!==false) close(); });
+  if(foot && opts.actions){
+    opts.actions.forEach(a=>{
+      const b=document.createElement('button');
+      b.className='btn '+(a.primary?'primary':a.danger?'danger':'');
+      b.textContent=a.label;
+      b.onclick=()=>{ if(a.onClick) a.onClick(close); else close(); };
+      foot.appendChild(b);
+    });
+  }
+  return { close, body, foot, el:m };
+}
+function confirmModal(msg, opts){
+  opts=opts||{};
+  return new Promise(resolve=>{
+    const m=openModal({
+      title:opts.title||'确认操作',
+      body:'<p style="margin:0">'+escapeHtml(msg)+'</p>',
+      actions:[
+        {label:opts.cancel||'取消', onClick:c=>{ c(); resolve(false); }},
+        {label:opts.ok||'确定', danger:true, primary:false, onClick:c=>{ c(); resolve(true); }}
+      ]
+    });
+  });
+}
+
+/* ============================ 加密层（CDN + 离线降级） ============================ */
+const MasterKey={
+  get(){ return sessionStorage.getItem('masterKey'); },
+  set(k){ sessionStorage.setItem('masterKey', k); },
+  clear(){ sessionStorage.removeItem('masterKey'); },
+  valid(p){ return p && p.length>=6; },
+  ensure(force){
+    return new Promise((resolve,reject)=>{
+      const existing=this.get();
+      if(existing && !force){ return resolve(existing); }
+      let val='';
+      const body=document.createElement('div');
+      body.innerHTML=
+        '<div class="field"><label>主密码（用于加密账号/网址，至少 6 位）</label>'+
+        '<input type="password" id="mk" placeholder="请输入主密码"></div>'+
+        '<div class="field"><label>确认主密码</label><input type="password" id="mk2" placeholder="再次输入"></div>'+
+        '<div class="warn">主密码仅保存在本次会话（sessionStorage），关闭页面后需重新输入；<b>系统不存储明文且无法找回，请牢记。</b></div>';
+      const m=openModal({
+        title:'设置主密码',
+        body, size:'',
+        actions:[
+          {label:'取消', onClick:c=>{ c(); reject(new Error('cancelled')); }},
+          {label:'确定', primary:true, onClick:c=>{
+            const a=$('#mk').value, b=$('#mk2').value;
+            if(!MasterKey.valid(a)){ toast('主密码至少 6 位','err'); return; }
+            if(a!==b){ toast('两次输入不一致','err'); return; }
+            MasterKey.set(a); c(); resolve(a);
+          }}
+        ]
+      });
+    });
+  },
+  prompt(){
+    return new Promise((resolve,reject)=>{
+      const body=document.createElement('div');
+      body.innerHTML='<div class="field"><label>主密码</label><input type="password" id="mk" placeholder="请输入主密码解锁"></div>';
+      openModal({ title:'解锁加密数据', body, actions:[
+        {label:'取消', onClick:c=>{ c(); reject(new Error('cancelled')); }},
+        {label:'解锁', primary:true, onClick:c=>{ const v=$('#mk').value; if(!v){toast('请输入密码','err');return;} MasterKey.set(v); c(); resolve(v); }}
+      ]});
+    });
+  }
+};
+const Sec={
+  async encrypt(plain){
+    const key=MasterKey.get();
+    if(!key) throw new Error('no master key');
+    if(window.CryptoJS) return CryptoJS.AES.encrypt(plain, key).toString();
+    return await wcEncrypt(plain, key);
+  },
+  async decrypt(cipher){
+    const key=MasterKey.get();
+    if(!key) throw new Error('no master key');
+    if(typeof cipher==='string' && cipher.startsWith('WC1:')) return await wcDecrypt(cipher.slice(4), key);
+    if(window.CryptoJS) return CryptoJS.AES.decrypt(cipher, key).toString(CryptoJS.enc.Utf8);
+    throw new Error('CRYPTO_MISSING');
+  }
+};
+/* 离线降级：WebCrypto AES-GCM-256 + PBKDF2，前缀 WC1: */
+function b64u(bytes){ let s=''; const arr=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes); for(let i=0;i<arr.length;i++) s+=String.fromCharCode(arr[i]); return btoa(s); }
+function unb64u(b){ const s=atob(b); const a=new Uint8Array(s.length); for(let i=0;i<s.length;i++) a[i]=s.charCodeAt(i); return a; }
+async function wcEncrypt(plain, pass){
+  const enc=new TextEncoder();
+  const salt=crypto.getRandomValues(new Uint8Array(16));
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const km=await crypto.subtle.importKey('raw', enc.encode(pass), 'PBKDF2', false, ['deriveKey']);
+  const key=await crypto.subtle.deriveKey({name:'PBKDF2', salt, iterations:100000, hash:'SHA-256'}, km, {name:'AES-GCM', length:256}, false, ['encrypt']);
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, enc.encode(plain));
+  const out=new Uint8Array(16+12+ct.byteLength); out.set(salt,0); out.set(iv,16); out.set(new Uint8Array(ct),28);
+  return 'WC1:'+b64u(out);
+}
+async function wcDecrypt(payload, pass){
+  const all=unb64u(payload);
+  const salt=all.slice(0,16), iv=all.slice(16,28), ct=all.slice(28);
+  const enc=new TextEncoder();
+  const km=await crypto.subtle.importKey('raw', enc.encode(pass), 'PBKDF2', false, ['deriveKey']);
+  const key=await crypto.subtle.deriveKey({name:'PBKDF2', salt, iterations:100000, hash:'SHA-256'}, km, {name:'AES-GCM', length:256}, false, ['decrypt']);
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, ct);
+  return new TextDecoder().decode(pt);
+}
+
+/* ============================ 加密集合读写 ============================ */
+async function loadEncrypted(key){
+  const raw=Store.get(key);
+  if(!raw) return [];
+  try{ return JSON.parse(await Sec.decrypt(raw)); }
+  catch(e){ if(e.message==='CRYPTO_MISSING'){ toast('加密库未加载，请联网后重试','err'); } else { toast('解密失败：主密码可能错误','err'); } return null; }
+}
+async function saveEncrypted(key, arr){
+  const cipher=await Sec.encrypt(JSON.stringify(arr));
+  Store.set(key, cipher);
+}
+
+/* ============================ 看板 ============================ */
+const state={ view:'home', viewYear:new Date().getFullYear(), viewMonth:new Date().getMonth() };
+function isComplete(it){ return it.done===true || (it.progress!=null && it.progress>=100); }
+function monthItems(y,m){
+  const plan=Store.get(KEY.month, {})||{}; const out=[];
+  Object.keys(plan).forEach(d=>{ const [yy,mm]=d.split('-').map(Number); if(yy===y && (mm-1)===m) plan[d].forEach(it=>out.push({date:d, ...it})); });
+  return out;
+}
+function refreshDashboard(){
+  const todos=Store.get(KEY.todo, [])||[];
+  const todoTotal=todos.length, todoDone=todos.filter(t=>t.done).length;
+  const items=monthItems(state.viewYear, state.viewMonth);
+  const mTotal=items.length;
+  const mDone=items.filter(isComplete).length;
+  const rate=mTotal? Math.round(mDone/mTotal*100):0;
+  const bar=$('#dashbar');
+  const titles=['今日待办数','今日完成数','月度计划总数','月度完成率'];
+  const vals=[todoTotal, todoDone, mTotal, rate+'%'];
+  const subs=['共 '+todoTotal+' 项 · 完成 '+todoDone, '完成率 '+(todoTotal?Math.round(todoDone/todoTotal*100):0)+'%', state.viewYear+'年'+(state.viewMonth+1)+'月', '已完成 '+mDone+' / '+mTotal];
+  const cls=['c1','c2','c3','c4'];
+  bar.innerHTML=titles.map((t,i)=>'<div class="metric '+cls[i]+'"><div class="label">'+t+'</div><div class="value">'+vals[i]+'</div><div class="sub">'+subs[i]+'</div></div>').join('');
+}
+
+/* ============================ 导航 ============================ */
+const NAV=[
+  {id:'home', ico:'🏠', label:'个人工作台'},
+  {id:'dash', ico:'📊', label:'数据看板'},
+  {id:'todo', ico:'📋', label:'今日待办'},
+  {id:'focus', ico:'🎯', label:'今日聚焦'},
+  {id:'month', ico:'📅', label:'月度计划'},
+  {id:'year', ico:'📚', label:'年度回顾'},
+  {id:'info', ico:'🖥️', label:'信息化管理', group:true, children:[
+    {id:'ip', ico:'🌐', label:'公司网络IP'},
+    {id:'urls', ico:'🌍', label:'公司网址'},
+    {id:'devm', ico:'🔧', label:'设备运维记录'},
+    {id:'netm', ico:'🌐', label:'网络维护记录'}
+  ]},
+  {id:'know', ico:'📁', label:'知识库'},
+  {id:'week', ico:'📄', label:'周报导出'}
+];
+const TITLES={home:'个人工作台',dash:'数据看板',todo:'今日待办',focus:'今日聚焦',month:'月度计划',year:'年度回顾',ip:'公司网络IP',urls:'公司网址',devm:'设备运维记录',netm:'网络维护记录',know:'知识库',week:'周报导出'};
+function buildNav(){
+  const nav=$('#nav'); nav.innerHTML='';
+  NAV.forEach(n=>{
+    const item=document.createElement('div'); item.className='nav-item'; item.dataset.id=n.id;
+    item.innerHTML='<span class="ico">'+n.ico+'</span><span>'+n.label+'</span>'+(n.group?'<span class="caret">▾</span>':'');
+    item.onclick=()=>{
+      if(n.group){ item.classList.toggle('collapsed'); const ch=item.nextElementSibling; if(ch) ch.classList.toggle('hide'); return; }
+      go(n.id);
+    };
+    nav.appendChild(item);
+    if(n.group){
+      const ch=document.createElement('div'); ch.className='nav-children';
+      n.children.forEach(c=>{
+        const ci=document.createElement('div'); ci.className='nav-item'; ci.dataset.id=c.id;
+        ci.innerHTML='<span class="ico">'+c.ico+'</span><span>'+c.label+'</span>';
+        ci.onclick=()=>go(c.id);
+        ch.appendChild(ci);
+      });
+      nav.appendChild(ch);
+    }
+  });
+  // 同步入口（导航栏底部）
+  const syncNav=document.createElement('div'); syncNav.className='nav-item';
+  syncNav.innerHTML='<span class="ico">🔄</span><span>同步数据</span>';
+  syncNav.onclick=()=>Sync.fullSync();
+  nav.appendChild(syncNav);
+  const statNav=document.createElement('div'); statNav.className='nav-item';
+  statNav.innerHTML='<span class="ico">☁️</span><span id="navStatText">未配置</span>';
+  statNav.onclick=()=>{ const b=$('#syncBox'); if(b) b.classList.toggle('collapsed'); };
+  nav.appendChild(statNav);
+}
+function setActiveNav(id){ $$('.nav-item').forEach(e=>e.classList.toggle('active', e.dataset.id===id)); }
+function go(id){ state.view=id; setActiveNav(id); $('#viewTitle').textContent=TITLES[id]||''; $('#sidebar').classList.remove('open'); const bd=$('.backdrop'); if(bd) bd.remove(); render(); }
+
+/* ============================ 渲染调度 ============================ */
+function render(){
+  refreshDashboard();
+  const v=state.view;
+  const map={home:renderHome,dash:renderDash,todo:renderTodo,focus:renderFocus,month:renderMonth,year:renderYear,
+    ip:renderIP,urls:renderUrls,devm:renderDevm,netm:renderNetm,know:renderKnow,week:renderWeek};
+  (map[v]||renderHome)();
+}
+
+/* ============== 个人工作台首页 ============== */
+function renderHome(){
+  const view=$('#view');
+  const todos=Store.get(KEY.todo,[])||[]; const focus=Store.get(KEY.focus,[])||[];
+  const items=monthItems(state.viewYear, state.viewMonth);
+  const done=items.filter(isComplete).length;
+  view.innerHTML='<div class="view-head"><h2>👋 你好，今天也要高效推进</h2></div>';
+  const grid=document.createElement('div'); grid.className='grid cols-3';
+  grid.appendChild(cardClick('📋 今日待办', todos.length+' 项', '未完 '+todos.filter(t=>!t.done).length+' 项', ()=>go('todo')));
+  grid.appendChild(cardClick('🎯 今日聚焦', focus.length+' 件', '已完成 '+focus.filter(t=>t.done).length+' 件', ()=>go('focus')));
+  grid.appendChild(cardClick('📅 本月计划', items.length+' 项', '完成率 '+(items.length?Math.round(done/items.length*100):0)+'%', ()=>go('month')));
+  view.appendChild(grid);
+  const qc=document.createElement('div'); qc.className='card'; qc.style.marginTop='14px';
+  qc.innerHTML='<h3 style="margin:0 0 10px">🚀 快捷入口</h3>';
+  const row=document.createElement('div'); row.className='row';
+  row.innerHTML=[['📋 今日待办','primary','todo'],['🎯 今日聚焦','','focus'],['📅 月度计划','','month'],['📁 知识库','','know'],['📄 生成周报','','week'],['🖥️ 信息化管理','','ip']]
+    .map(([l,c,v])=>btn(l,c,()=>go(v))).join('');
+  qc.appendChild(row); view.appendChild(qc);
+}
+function card(title, val, sub){ return '<div class="row" style="justify-content:space-between"><b>'+title+'</b></div>'+
+  '<div style="font-size:28px;font-weight:800;margin:8px 0 2px">'+val+'</div><div class="muted" style="font-size:12px">'+sub+'</div>'; }
+function cardClick(title, val, sub, onClick){ const d=document.createElement('div'); d.className='card'; d.style.cursor='pointer'; d.innerHTML=card(title,val,sub); d.onclick=onClick; return d; }
+/* 按钮：返回 HTML 字符串，点击通过全局委托触发回调（避免 innerHTML 拼接 DOM 节点的问题） */
+const _cbReg={};
+function _btnHTML(label, cls, onClick){ const id=uid(); _cbReg[id]=onClick; return '<button class="btn '+(cls||'')+'" data-cb="'+id+'">'+escapeHtml(label)+'</button>'; }
+function btn(label, cls, onClick){ return _btnHTML(label, cls, onClick); }
+function opBtn(label, cls, onClick){ return _btnHTML(label, cls, onClick); }
+document.addEventListener('click', function(e){ const t=e.target.closest('[data-cb]'); if(t&&_cbReg[t.dataset.cb]){ _cbReg[t.dataset.cb](); } });
+
+/* ============== 数据看板 ============== */
+function renderDash(){
+  const view=$('#view');
+  const todos=Store.get(KEY.todo,[])||[]; const focus=Store.get(KEY.focus,[])||[];
+  const items=monthItems(state.viewYear, state.viewMonth);
+  const mDone=items.filter(isComplete).length;
+  const byCat={}; items.forEach(it=>{ const c=it.category||'未分类'; byCat[c]=(byCat[c]||0)+1; });
+  const catHtml=Object.keys(byCat).map(c=>'<span class="tag cat">'+escapeHtml(c)+' '+byCat[c]+'</span>').join(' ') || '<span class="muted">暂无</span>';
+  view.innerHTML=
+    '<div class="view-head"><h2>📊 数据看板</h2><span class="muted">'+state.viewYear+'年'+(state.viewMonth+1)+'月</span></div>'+
+    '<div class="grid cols-2">'+
+      statBox('今日待办完成率', (todos.length?Math.round(todos.filter(t=>t.done).length/todos.length*100):0)+'%', todos.filter(t=>t.done).length+'/'+todos.length)+
+      statBox('本月计划完成率', (items.length?Math.round(mDone/items.length*100):0)+'%', mDone+'/'+items.length)+
+      statBox('今日聚焦完成', focus.filter(t=>t.done).length+' 件', '共 '+focus.length+' 件')+
+      statBox('年度归档', (Store.get(KEY.year,[])||[]).length+' 条', '累计归档')+
+    '</div>'+
+    '<div class="card" style="margin-top:14px"><h3 style="margin:0 0 8px">本月计划分类分布</h3>'+catHtml+'</div>';
+}
+function statBox(t,v,s){ return '<div class="stat-pill" style="flex:1;min-width:160px"><span class="muted" style="font-size:12px">'+t+'</span><b>'+v+'</b><span class="muted" style="font-size:12px">'+s+'</span></div>'; }
+
+/* ============== 今日待办 ============== */
+function renderTodo(){
+  const view=$('#view');
+  const list=Store.get(KEY.todo,[])||[];
+  view.innerHTML=
+    '<div class="view-head"><h2>📋 今日待办</h2><div class="spacer"></div>'+btn('+ 新建','primary',()=>todoEdit(null))+'</div>'+
+    '<div class="list" id="todoList"></div>';
+  const box=$('#todoList');
+  if(!list.length){ box.innerHTML='<div class="empty">暂无待办，点右上角「新建」开始吧</div>'; return; }
+  list.forEach(it=>box.appendChild(todoRow(it)));
+}
+function priTag(p){ const m={high:['高','p-high'],mid:['中','p-mid'],low:['低','p-low']}; const x=m[p]||m.mid; return '<span class="tag '+x[1]+'">'+x[0]+'</span>'; }
+function todoRow(it){
+  const row=document.createElement('div'); row.className='item';
+  row.innerHTML=
+    '<input type="checkbox" class="chk" '+(it.done?'checked':'')+'>'+
+    '<div class="body"><div class="title '+(it.done?'done':'')+'">'+escapeHtml(it.text)+'</div>'+
+      '<div class="meta">'+priTag(it.priority||'mid')+(it.linkId?'<span class="tag cat">已关联月度</span>':'')+
+      '<span>'+fmtTime(it.createdAt)+'</span></div></div>'+
+    '<div class="ops">'+opBtn('复制','sm',()=>copyTodoToMonth(it))+opBtn('编辑','sm',()=>todoEdit(it))+opBtn('删','sm danger',()=>delTodo(it))+'</div>';
+  row.querySelector('.chk').onchange=e=>{ it.done=e.target.checked; Store.set(KEY.todo, Store.get(KEY.todo,[]).map(x=>x.id===it.id?it:x)); if(it.linkId) syncLinkDone(it); refreshDashboard(); toast('已更新','ok'); };
+  return row;
+}
+function fmtTime(iso){ if(!iso) return ''; const d=new Date(iso); const p=n=>String(n).padStart(2,'0'); return p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
+function opBtn(label, cls, onClick){ const b=document.createElement('button'); b.className='btn '+(cls||''); b.textContent=label; b.onclick=onClick; return b; }
+async function delTodo(it){
+  if(await confirmModal('确定删除该待办「'+it.text+'」？')){
+    Store.set(KEY.todo, (Store.get(KEY.todo,[])||[]).filter(x=>x.id!==it.id)); refreshDashboard(); renderTodo(); toast('已删除','ok');
+  }
+}
+function todoEdit(it){
+  const isNew=!it; const data=it||{text:'',priority:'mid'};
+  const body=document.createElement('div');
+  body.innerHTML='<div class="field"><label>内容</label><textarea id="t_text" placeholder="待办内容">'+escapeHtml(data.text)+'</textarea></div>'+
+    '<div class="field"><label>优先级</label><select id="t_pri">'+
+      '<option value="high"'+(data.priority==='high'?' selected':'')+'>高</option>'+
+      '<option value="mid"'+(data.priority==='mid'?' selected':'')+'>中</option>'+
+      '<option value="low"'+(data.priority==='low'?' selected':'')+'>低</option></select></div>';
+  openModal({ title:isNew?'新建待办':'编辑待办', body, actions:[
+    {label:'取消', onClick:c=>c()},
+    {label:'保存', primary:true, onClick:c=>{
+      const text=$('#t_text').value.trim(); if(!text){toast('内容不能为空','err');return;}
+      if(isNew){ const arr=Store.get(KEY.todo,[]); arr.unshift({id:uid(),text,done:false,priority:$('#t_pri').value,createdAt:nowISO()}); Store.set(KEY.todo,arr); }
+      else { const arr=Store.get(KEY.todo,[]).map(x=>x.id===it.id?{...x,text,priority:$('#t_pri').value}:x); Store.set(KEY.todo,arr); }
+      c(); refreshDashboard(); renderTodo(); toast('已保存','ok');
+    }}
+  ]});
+}
+function copyTodoToMonth(it){
+  const date=prompt('复制到月度计划的日期（YYYY-MM-DD）：', todayKey());
+  if(!date) return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){ toast('日期格式错误','err'); return; }
+  const plan=Store.get(KEY.month,{})||{}; const arr=plan[date]||[];
+  const newItem={id:uid(), text:it.text, done:it.done, priority:it.priority||'mid', progress:it.done?100:0, category:'待办转入', subtasks:[], createdAt:nowISO(), updatedAt:nowISO(), linkId:it.id};
+  arr.push(newItem); plan[date]=arr; Store.set(KEY.month, plan);
+  // 双向联动：给待办打上 linkId
+  const todos=Store.get(KEY.todo,[]).map(x=>x.id===it.id?{...x, linkId:newItem.id}:x); Store.set(KEY.todo, todos);
+  toast('已复制到月度计划 '+date,'ok'); refreshDashboard();
+}
+function syncLinkDone(src){
+  // src 是待办，找到月度中 linkId 对应的项，同步 done
+  const plan=Store.get(KEY.month,{})||{};
+  Object.keys(plan).forEach(d=>{
+    plan[d]=plan[d].map(x=>{ if(x.linkId===src.id){ const nx={...x, done:src.done, progress:src.done?100:x.progress}; return nx; } return x; });
+  });
+  Store.set(KEY.month, plan);
+}
+
+/* ============== 今日聚焦 ============== */
+function renderFocus(){
+  const view=$('#view'); const list=Store.get(KEY.focus,[])||[];
+  view.innerHTML=
+    '<div class="view-head"><h2>🎯 今日聚焦</h2><span class="muted">精选 '+(list.length>5?'(已达 5 件上限，建议先完成)':'3-5')+' 件最重要的事</span><div class="spacer"></div>'+btn('+ 添加','primary',()=>focusEdit(null))+'</div>'+
+    '<div class="list" id="focusList"></div>';
+  const box=$('#focusList');
+  if(!list.length){ box.innerHTML='<div class="empty">还没有聚焦事项，添加今天最重要的 3-5 件事</div>'; return; }
+  list.forEach(it=>box.appendChild(focusRow(it)));
+}
+function focusRow(it){
+  const row=document.createElement('div'); row.className='item';
+  row.innerHTML='<input type="checkbox" class="chk" '+(it.done?'checked':'')+'>'+
+    '<div class="body"><div class="title '+(it.done?'done':'')+'">'+escapeHtml(it.text)+'</div><div class="meta"><span>'+fmtTime(it.createdAt)+'</span></div></div>'+
+    '<div class="ops">'+opBtn('编辑','sm',()=>focusEdit(it))+opBtn('删','sm danger',()=>delFocus(it))+'</div>';
+  row.querySelector('.chk').onchange=e=>{ it.done=e.target.checked; Store.set(KEY.focus, Store.get(KEY.focus,[]).map(x=>x.id===it.id?it:x)); refreshDashboard(); };
+  return row;
+}
+function focusEdit(it){
+  const isNew=!it; const data=it||{text:''};
+  const body=document.createElement('div'); body.innerHTML='<div class="field"><label>聚焦事项</label><textarea id="f_text" placeholder="今天最重要的事">'+escapeHtml(data.text)+'</textarea></div>';
+  openModal({ title:isNew?'添加聚焦':'编辑聚焦', body, actions:[
+    {label:'取消', onClick:c=>c()},
+    {label:'保存', primary:true, onClick:c=>{
+      const text=$('#f_text').value.trim(); if(!text){toast('内容不能为空','err');return;}
+      if(isNew){ const arr=Store.get(KEY.focus,[]); if(arr.length>=5){ toast('聚焦上限 5 件，请先完成部分','err'); return; } arr.push({id:uid(),text,done:false,createdAt:nowISO()}); Store.set(KEY.focus,arr); }
+      else { Store.set(KEY.focus, Store.get(KEY.focus,[]).map(x=>x.id===it.id?{...x,text}:x)); }
+      c(); refreshDashboard(); renderFocus(); toast('已保存','ok');
+    }}
+  ]});
+}
+async function delFocus(it){ if(await confirmModal('确定删除该聚焦事项？')){ Store.set(KEY.focus,(Store.get(KEY.focus,[])||[]).filter(x=>x.id!==it.id)); refreshDashboard(); renderFocus(); toast('已删除','ok'); } }
+
+/* ============== 月度计划（核心） ============== */
+function renderMonth(){
+  const view=$('#view'); const y=state.viewYear, m=state.viewMonth;
+  const first=new Date(y,m,1); const startDow=(first.getDay()+6)%7; // 周一为起点
+  const days=new Date(y,m+1,0).getDate(); const prevDays=new Date(y,m,0).getDate();
+  let html='<div class="view-head"><h2>📅 月度计划</h2><div class="spacer"></div>'+
+    btn('📝 生成月度总结','',genMonthSummary)+btn('+ 今日添加','primary',()=>monthItemEdit(null, todayKey()))+'</div>';
+  html+='<div class="cal-head"><button class="btn sm" id="prevM">‹ 上月</button><span class="mm">'+y+'年'+(m+1)+'月</span><button class="btn sm" id="nextM">下月 ›</button></div>';
+  html+='<div class="cal">';
+  ['一','二','三','四','五','六','日'].forEach(d=>html+='<div class="dow">'+d+'</div>');
+  // 上月补齐
+  for(let i=startDow-1;i>=0;i--){ html+='<div class="day other"><div class="dnum">'+(prevDays-i)+'</div></div>'; }
+  const plan=Store.get(KEY.month,{})||{};
+  const tKey=todayKey();
+  for(let d=1;d<=days;d++){
+    const ds=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const arr=plan[ds]||[]; const done=arr.filter(isComplete).length;
+    const rate=arr.length?Math.round(done/arr.length*100):0;
+    const dots=arr.slice(0,3).map(it=>'<span class="dot" title="'+escapeHtml(it.text)+'"></span>').join('');
+    const mini=arr[0]?('<div class="mini">'+escapeHtml(arr[0].text)+'</div>'):'';
+    const cls='day'+(ds===tKey?' today':'')+(state.selDate===ds?' sel':'');
+    html+='<div class="'+cls+'" data-date="'+ds+'"><div class="dnum">'+d+'</div>'+mini+
+      '<div class="dots">'+dots+(arr.length>3?'<span class="muted" style="font-size:10px">+'+(arr.length-3)+'</span>':'')+'</div>'+
+      (arr.length?'<div class="pct">'+rate+'%</div>':'')+'</div>';
+  }
+  // 下月补齐
+  const total=startDow+days; const tail=(7-total%7)%7;
+  for(let d=1;d<=tail;d++){ html+='<div class="day other"><div class="dnum">'+d+'</div></div>'; }
+  html+='</div>';
+  html+='<div id="dayPanel" style="margin-top:16px"></div>';
+  view.innerHTML=html;
+  $('#prevM').onclick=()=>{ if(m===0){state.viewMonth=11;state.viewYear--;}else state.viewMonth--; refreshDashboard(); renderMonth(); };
+  $('#nextM').onclick=()=>{ if(m===11){state.viewMonth=0;state.viewYear++;}else state.viewMonth++; refreshDashboard(); renderMonth(); };
+  $$('.cal .day[data-date]').forEach(el=>{ el.onclick=()=>{ state.selDate=el.dataset.date; renderMonth(); }; });
+  if(state.selDate) renderDayPanel(state.selDate);
+}
+function renderDayPanel(ds){
+  const panel=$('#dayPanel'); if(!panel) return;
+  const plan=Store.get(KEY.month,{})||{}; const arr=plan[ds]||[];
+  let html='<div class="card detail"><div class="view-head" style="margin:0 0 12px"><h3 style="margin:0">📆 '+ds+' 当日计划</h3><div class="spacer"></div>'+btn('+ 添加任务','primary',()=>monthItemEdit(null, ds))+'</div>';
+  if(!arr.length){ html+='<div class="empty">这一天还没有计划任务</div></div>'; panel.innerHTML=html; return; }
+  arr.forEach(it=>{
+    const subs=(it.subtasks||[]).map((s,i)=>'<label class="subtask '+(s.done?'done':'')+'"><input type="checkbox" data-i="'+i+'" '+(s.done?'checked':'')+'> <span>'+escapeHtml(s.text)+'</span></label>').join('');
+    html+='<div class="ditem" data-id="'+it.id+'">'+
+      '<div class="top"><input type="checkbox" class="chk" '+(it.done?'checked':'')+'>'+
+        '<div class="ttl '+(it.done?'done':'')+'">'+escapeHtml(it.text)+'</div>'+
+        priTag(it.priority||'mid')+(it.category?'<span class="tag cat">'+escapeHtml(it.category)+'</span>':'')+'</div>'+
+      '<div class="meta row" style="margin-top:6px"><div class="progress"><i style="width:'+(it.progress||0)+'%"></i></div><span class="progress-num">'+(it.progress||0)+'%</span>'+
+        opBtn('编辑','sm',()=>monthItemEdit(it, ds))+opBtn('复制待办','sm',()=>copyMonthToTodo(it))+opBtn('删','sm danger',()=>delMonth(it, ds))+'</div>'+
+      (subs?'<div class="subtasks">'+subs+'</div>':'')+
+    '</div>';
+  });
+  html+='</div>'; panel.innerHTML=html;
+  // 绑定
+  $$('.ditem', panel).forEach(box=>{
+    const id=box.dataset.id; const it=arr.find(x=>x.id===id); if(!it) return;
+    box.querySelector('.chk').onchange=e=>{ it.done=e.target.checked; if(it.done) it.progress=100; it.updatedAt=nowISO(); saveMonthItem(ds,it); };
+    $$('.subtask input', box).forEach(cb=>{ cb.onchange=e=>{ const i=+cb.dataset.i; it.subtasks[i].done=e.target.checked; it.updatedAt=nowISO(); saveMonthItem(ds,it); }; });
+  });
+}
+function saveMonthItem(ds, it){
+  const plan=Store.get(KEY.month,{})||{}; const arr=plan[ds]||[];
+  const idx=arr.findIndex(x=>x.id===it.id);
+  if(idx>=0) arr[idx]=it; else arr.push(it);
+  plan[ds]=arr; Store.set(KEY.month, plan);
+  // 自动归档
+  if(isComplete(it)){ archiveMonthItem(ds, it); }
+  refreshDashboard(); renderMonth();
+}
+function archiveMonthItem(ds, it){
+  const arr=Store.get(KEY.year,[])||[];
+  if(arr.find(a=>a.id===it.id)) return;
+  arr.unshift({id:it.id, title:it.text, category:it.category||'未分类', sourceDate:ds, completedAt:nowISO(), subtasks:it.subtasks||[], archivedAt:nowISO()});
+  Store.set(KEY.year, arr);
+  // 从月度计划移除
+  const plan=Store.get(KEY.month,{})||{}; if(plan[ds]){ plan[ds]=plan[ds].filter(x=>x.id!==it.id); if(!plan[ds].length) delete plan[ds]; Store.set(KEY.month, plan); }
+  toast('已完成任务已归档到年度回顾','ok');
+}
+function copyMonthToTodo(it){
+  const todos=Store.get(KEY.todo,[]);
+  if(todos.find(t=>t.linkId===it.id)){ toast('已存在关联待办','info'); return; }
+  todos.unshift({id:uid(), text:it.text, done:it.done, priority:it.priority||'mid', createdAt:nowISO(), linkId:it.id});
+  Store.set(KEY.todo, todos); toast('已复制到今日待办','ok'); refreshDashboard();
+}
+async function delMonth(it, ds){
+  if(await confirmModal('确定删除该月度任务「'+it.text+'」？')){
+    const plan=Store.get(KEY.month,{})||{}; if(plan[ds]){ plan[ds]=plan[ds].filter(x=>x.id!==it.id); if(!plan[ds].length) delete plan[ds]; Store.set(KEY.month, plan); }
+    refreshDashboard(); renderMonth(); toast('已删除','ok');
+  }
+}
+function monthItemEdit(it, ds){
+  const isNew=!it; const data=it||{text:'',priority:'mid',progress:0,category:'',subtasks:[]};
+  const body=document.createElement('div');
+  body.innerHTML='<div class="field"><label>任务内容</label><textarea id="m_text">'+escapeHtml(data.text)+'</textarea></div>'+
+    '<div class="field-row"><div class="field"><label>优先级</label><select id="m_pri">'+
+      '<option value="high"'+(data.priority==='high'?' selected':'')+'>高</option><option value="mid"'+(data.priority==='mid'?' selected':'')+'>中</option><option value="low"'+(data.priority==='low'?' selected':'')+'>低</option></select></div>'+
+      '<div class="field"><label>分类</label><input id="m_cat" value="'+escapeHtml(data.category||'')+'" placeholder="如：生产/采购/行政"></div></div>'+
+    '<div class="field"><label>完成进度：<b id="m_prv">'+(data.progress||0)+'%</b></label><input type="range" id="m_pro" min="0" max="100" value="'+(data.progress||0)+'" style="width:100%"></div>'+
+    '<div class="field"><label>子任务（每行一个）</label><textarea id="m_sub">'+escapeHtml((data.subtasks||[]).map(s=>s.text).join('\n'))+'</textarea></div>';
+  openModal({ title:isNew?'新建月度任务':'编辑月度任务', body, size:'', actions:[
+    {label:'取消', onClick:c=>c()},
+    {label:'保存', primary:true, onClick:c=>{
+      const text=$('#m_text').value.trim(); if(!text){toast('内容不能为空','err');return;}
+      const progress=+$('#m_pro').value;
+      const subText=$('#m_sub').value.split('\n').map(s=>s.trim()).filter(Boolean);
+      const oldSubs=data.subtasks||[];
+      const subtasks=subText.map((t,i)=>oldSubs[i]&&oldSubs[i].text===t?oldSubs[i]:{text:t,done:false});
+      const obj={id:isNew?uid():it.id, text, done:progress>=100, priority:$('#m_pri').value, progress, category:$('#m_cat').value.trim(), subtasks, createdAt:isNew?nowISO():data.createdAt, updatedAt:nowISO()};
+      saveMonthItem(ds, obj); c(); toast('已保存','ok');
+    }}
+  ]});
+  const rng=$('#m_pro'); rng.oninput=()=>{ $('#m_prv').textContent=rng.value+'%'; };
+}
+function genMonthSummary(){
+  const y=state.viewYear, m=state.viewMonth; const items=monthItems(y,m);
+  const done=items.filter(isComplete).length;
+  const byCat={}; items.forEach(it=>{ const c=it.category||'未分类'; byCat[c]=(byCat[c]||0)+1; });
+  const lines=[];
+  lines.push('# '+y+'年'+(m+1)+'月 月度总结');
+  lines.push('');
+  lines.push('- 计划任务总数：**'+items.length+'**');
+  lines.push('- 已完成：**'+done+'**　完成率：**'+(items.length?Math.round(done/items.length*100):0)+'%**');
+  lines.push('');
+  lines.push('## 分类分布');
+  Object.keys(byCat).forEach(c=>lines.push('- '+c+'：'+byCat[c]+' 项'));
+  lines.push('');
+  lines.push('## 任务清单');
+  items.forEach(it=>{ lines.push('- ['+(isComplete(it)?'x':' ')+'] '+it.text+(it.category?'（'+it.category+'）':'')); });
+  const md=lines.join('\n');
+  const body=document.createElement('div'); body.innerHTML='<pre class="md-pre">'+escapeHtml(md)+'</pre>';
+  openModal({ title:'📝 月度总结报告', body, size:'wide', actions:[
+    {label:'复制', onClick:()=>{ copyText(md); toast('已复制','ok'); }},
+    {label:'下载 MD', primary:true, onClick:()=>{ download(y+'-'+(m+1)+'-月度总结.md', md, 'text/markdown'); toast('已下载','ok'); }}
+  ]});
+}
+
+/* ============== 年度回顾 ============== */
+function renderYear(){
+  const view=$('#view'); const list=Store.get(KEY.year,[])||[];
+  const byCat={}; list.forEach(a=>{ byCat[a.category||'未分类']=(byCat[a.category||'未分类']||0)+1; });
+  const catHtml=Object.keys(byCat).map(c=>'<span class="tag cat">'+escapeHtml(c)+' '+byCat[c]+'</span>').join(' ') || '<span class="muted">暂无归档</span>';
+  view.innerHTML=
+    '<div class="view-head"><h2>📚 年度回顾</h2><div class="spacer"></div>'+
+      btn('⬇ 导出 JSON','',exportYear)+btn('🗑 清空','danger',clearYear)+'</div>'+
+    '<div class="stat-box"><div class="stat-pill"><span class="muted">归档总数</span><b>'+list.length+'</b></div>'+catHtml+'</div>'+
+    '<div class="list" id="yearList"></div>';
+  const box=$('#yearList');
+  if(!list.length){ box.innerHTML='<div class="empty">暂无归档。月度计划任务完成后会自动归档到这里。</div>'; return; }
+  list.forEach(a=>{
+    const el=document.createElement('div'); el.className='item';
+    el.innerHTML='<div class="body"><div class="title">'+escapeHtml(a.title)+'</div>'+
+      '<div class="meta"><span class="tag cat">'+escapeHtml(a.category||'未分类')+'</span><span>来源：'+escapeHtml(a.sourceDate||'')+'</span><span>归档：'+fmtTime(a.archivedAt)+'</span></div></div>'+
+      '<div class="ops">'+opBtn('删','sm danger',()=>delYear(a))+'</div>';
+    box.appendChild(el);
+  });
+}
+function exportYear(){ const data=Store.get(KEY.year,[])||[]; download('年度回顾-'+todayKey()+'.json', JSON.stringify(data,null,2), 'application/json'); toast('已导出','ok'); }
+async function clearYear(){ if(await confirmModal('确定清空全部年度归档？此操作不可恢复。')){ Store.del(KEY.year); refreshDashboard(); renderYear(); toast('已清空','ok'); } }
+async function delYear(a){ if(await confirmModal('删除该归档项？')){ Store.set(KEY.year,(Store.get(KEY.year,[])||[]).filter(x=>x.id!==a.id)); refreshDashboard(); renderYear(); toast('已删除','ok'); } }
+
+/* ============== 信息化管理 - 公司网络IP（Tab：设备IP / 账号密码） ============== */
+let ipTab='devices';
+function renderIP(){
+  const view=$('#view');
+  view.innerHTML=
+    '<div class="view-head"><h2>🌐 公司网络IP</h2></div>'+
+    '<div class="tabs"><button class="tab '+(ipTab==='devices'?'active':'')+'" data-t="devices">设备 IP 管理</button>'+
+      '<button class="tab '+(ipTab==='accounts'?'active':'')+'" data-t="accounts">账号密码</button></div>'+
+    '<div id="ipBody"></div>';
+  $$('.tab', view).forEach(t=>t.onclick=()=>{ ipTab=t.dataset.t; renderIP(); });
+  if(ipTab==='devices') renderIPDevices(); else renderIPAccounts();
+}
+/* --- 设备 IP 管理 --- */
+let ipFilter='';
+function renderIPDevices(){
+  const box=$('#ipBody'); const all=Store.get(KEY.ip,[])||[];
+  const q=ipFilter.trim().toLowerCase();
+  const list=q? all.filter(d=>[d.name,d.ip,d.type,d.location,d.status].join(' ').toLowerCase().includes(q)) : all;
+  box.innerHTML=
+    '<div class="row" style="margin-bottom:12px"><input class="search" id="ipSearch" placeholder="搜索 名称/IP/类型/位置/状态" value="'+escapeHtml(ipFilter)+'">'+
+      '<div class="spacer"></div>'+btn('⬇ CSV','sm',exportIPcsv)+btn('⬇ JSON','sm',exportIPjson)+btn('+ 新增设备','primary',()=>ipDeviceEdit(null))+'</div>'+
+    (list.length?'<div class="table-wrap"><table><thead><tr><th>名称</th><th>IP</th><th>子网掩码</th><th>网关</th><th>类型</th><th>位置</th><th>状态</th><th>备注</th><th>操作</th></tr></thead><tbody id="ipRows"></tbody></table></div>'
+      :'<div class="empty">暂无设备，点「新增设备」</div>');
+  const rows=$('#ipRows');
+  if(rows) list.forEach(d=>{ const tr=document.createElement('tr');
+    tr.innerHTML='<td>'+escapeHtml(d.name)+'</td><td class="mono">'+escapeHtml(d.ip)+'</td><td class="mono">'+(d.subnetMask||'')+'</td><td class="mono">'+(d.gateway||'')+'</td><td>'+(d.type||'')+'</td><td>'+(d.location||'')+'</td><td>'+(statusTag(d.status))+'</td><td class="muted">'+(escapeHtml(d.remark||''))+'</td>'+
+      '<td><div class="ops">'+opBtn('复制IP','sm',()=>copyText(d.ip))+opBtn('编辑','sm',()=>ipDeviceEdit(d))+opBtn('删','sm danger',()=>delIPDevice(d))+'</div></td>';
+    rows.appendChild(tr);
+  });
+  const s=$('#ipSearch'); if(s) s.oninput=e=>{ ipFilter=e.target.value; renderIPDevices(); };
+}
+function statusTag(s){ const m={online:['在线','stat-done'],offline:['离线','stat-todo'],fault:['故障','sev-high'],idle:['闲置','stat-doing']}; const x=m[s]||['未知','stat-todo']; return '<span class="tag '+x[1]+'">'+x[0]+'</span>'; }
+function ipDeviceEdit(it){
+  const isNew=!it; const d=it||{name:'',ip:'',subnetMask:'',gateway:'',type:'',location:'',status:'online',remark:''};
+  const body=document.createElement('div');
+  body.innerHTML=
+    '<div class="field"><label>设备名称</label><input id="d_name" value="'+escapeHtml(d.name)+'"></div>'+
+    '<div class="field-row"><div class="field"><label>IP 地址</label><input id="d_ip" class="mono" value="'+escapeHtml(d.ip)+'"></div>'+
+      '<div class="field"><label>类型</label><input id="d_type" value="'+escapeHtml(d.type)+'" placeholder="服务器/打印机/摄像头..."></div></div>'+
+    '<div class="field-row"><div class="field"><label>子网掩码</label><input id="d_mask" class="mono" value="'+escapeHtml(d.subnetMask||'')+'"></div>'+
+      '<div class="field"><label>网关</label><input id="d_gw" class="mono" value="'+escapeHtml(d.gateway||'')+'"></div></div>'+
+    '<div class="field-row"><div class="field"><label>位置</label><input id="d_loc" value="'+escapeHtml(d.location||'')+'"></div>'+
+      '<div class="field"><label>状态</label><select id="d_st">'+['online','offline','fault','idle'].map(s=>'<option value="'+s+'"'+(d.status===s?' selected':'')+'>'+(s==='online'?'在线':s==='offline'?'离线':s==='fault'?'故障':'闲置')+'</option>').join('')+'</select></div></div>'+
+    '<div class="field"><label>备注</label><textarea id="d_rem">'+escapeHtml(d.remark||'')+'</textarea></div>';
+  openModal({ title:isNew?'新增设备':'编辑设备', body, actions:[
+    {label:'取消', onClick:c=>c()},
+    {label:'保存', primary:true, onClick:c=>{
+      const name=$('#d_name').value.trim(), ip=$('#d_ip').value.trim(); if(!name||!ip){toast('名称和IP必填','err');return;}
+      const obj={id:isNew?uid():it.id, name, ip, subnetMask:$('#d_mask').value.trim(), gateway:$('#d_gw').value.trim(), type:$('#d_type').value.trim(), location:$('#d_loc').value.trim(), status:$('#d_st').value, remark:$('#d_rem').value.trim(), createdAt:isNew?nowISO():d.createdAt, updatedAt:nowISO()};
+      const arr=Store.get(KEY.ip,[]); if(isNew) arr.unshift(obj); else arr.forEach((x,i)=>{ if(x.id===obj.id) arr[i]=obj; }); Store.set(KEY.ip, arr);
+      c(); renderIPDevices(); toast('已保存','ok');
+    }}
+  ]});
+}
+async function delIPDevice(d){ if(await confirmModal('删除设备「'+d.name+'」？')){ Store.set(KEY.ip,(Store.get(KEY.ip,[])||[]).filter(x=>x.id!==d.id)); renderIPDevices(); toast('已删除','ok'); } }
+function exportIPcsv(){ const all=Store.get(KEY.ip,[])||[]; const h=['名称','IP','子网掩码','网关','类型','位置','状态','备注']; const rows=all.map(d=>[d.name,d.ip,d.subnetMask||'',d.gateway||'',d.type||'',d.location||'',d.status||'',d.remark||'']); download('设备IP-'+todayKey()+'.csv', [h,...rows].map(r=>r.map(csvCell).join(',')).join('\n'), 'text/csv;charset=utf-8'); toast('已导出 CSV','ok'); }
+function exportIPjson(){ download('设备IP-'+todayKey()+'.json', JSON.stringify(Store.get(KEY.ip,[]),null,2), 'application/json'); toast('已导出 JSON','ok'); }
+function csvCell(v){ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
+
+/* --- 账号密码（加密） --- */
+let accFilter='';
+async function renderIPAccounts(){
+  const box=$('#ipBody');
+  box.innerHTML='<div class="row" style="margin-bottom:10px"><input class="search" id="accSearch" placeholder="搜索 名称/账号/关联设备">'+
+    '<div class="spacer"></div>'+btn('⬇ 导出','sm',exportAcc)+btn('⬆ 导入','sm',importAcc)+btn('+ 新增账号','primary',()=>accEdit(null))+'</div><div id="accBody"></div>';
+  let arr=await loadEncrypted(KEY.acc);
+  if(arr===null){ $('#accBody').innerHTML='<div class="empty">无法解密，请确认主密码是否正确 / 加密库是否加载</div>'; bindAccSearch(null); return; }
+  const q=accFilter.trim().toLowerCase();
+  const shown=q? arr.filter(a=>[a.name,a.account,a.deviceName].join(' ').toLowerCase().includes(q)) : arr;
+  const bb=$('#accBody');
+  if(!arr.length){ bb.innerHTML='<div class="empty">还没有保存任何账号密码</div>'; bindAccSearch(arr); return; }
+  if(!shown.length){ bb.innerHTML='<div class="empty">无匹配结果</div>'; bindAccSearch(arr); return; }
+  bb.innerHTML='<div class="table-wrap"><table><thead><tr><th>名称</th><th>账号</th><th>密码</th><th>关联设备</th><th>备注</th><th>操作</th></tr></thead><tbody id="accRows"></tbody></table></div>';
+  const rows=$('#accRows');
+  shown.forEach(a=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td>'+escapeHtml(a.name||'')+'</td><td class="mono">'+(a.account||'')+'</td>'+
+      '<td class="mono"><span class="pw">••••••••</span> '+opBtn('显示','sm',()=>revealPW(tr,a))+' '+opBtn('复制','sm',()=>copyText(a.password))+'</td>'+
+      '<td>'+(a.deviceName?('<span class="tag cat">'+escapeHtml(a.deviceName)+'</span>'):'<span class="muted">—</span>')+'</td>'+
+      '<td class="muted">'+(escapeHtml(a.remark||''))+'</td>'+
+      '<td><div class="ops">'+opBtn('编辑','sm',()=>accEdit(a))+opBtn('删','sm danger',()=>delAcc(a))+'</div></td>';
+    rows.appendChild(tr);
+  });
+  bindAccSearch(arr);
+}
+function bindAccSearch(arr){ const s=$('#accSearch'); if(s) s.oninput=async e=>{ accFilter=e.target.value; await renderIPAccounts(); }; }
+async function revealPW(tr, a){ const sp=tr.querySelector('.pw'); if(sp.dataset.show==='1'){ sp.textContent='••••••••'; sp.dataset.show='0'; return; } sp.textContent=a.password; sp.dataset.show='1'; }
+async function accEdit(it){
+  await MasterKey.ensure().catch(()=>{}); if(!MasterKey.get()){ return; }
+  const devices=Store.get(KEY.ip,[])||[];
+  const isNew=!it; const a=it||{name:'',account:'',password:'',deviceId:'',remark:''};
+  const body=document.createElement('div');
+  body.innerHTML=
+    '<div class="field"><label>名称（如：路由器管理）</label><input id="a_name" value="'+escapeHtml(a.name||'')+'"></div>'+
+    '<div class="field-row"><div class="field"><label>登录账号</label><input id="a_acc" value="'+escapeHtml(a.account||'')+'"></div>'+
+      '<div class="field"><label>关联设备</label><select id="a_dev"><option value="">— 不关联 —</option>'+devices.map(d=>'<option value="'+d.id+'"'+(a.deviceId===d.id?' selected':'')+'>'+escapeHtml(d.name)+'</option>').join('')+'</select></div></div>'+
+    '<div class="field"><label>密码</label><div class="pw-wrap"><input id="a_pw" class="mono" value="'+escapeHtml(a.password||'')+'"><button class="btn sm" id="genpw">生成</button><button class="btn sm" id="togglepw">显示</button></div>'+
+      '<div class="field-row" style="margin-top:8px"><input type="range" id="pwlen" min="8" max="32" value="16"><span id="pwlenv" style="font-size:12px;color:var(--ink-2)">16 位</span></div>'+
+      '<div class="row" style="margin-top:6px"><label style="font-size:12px"><input type="checkbox" id="pw_sym" checked> 含符号</label></div></div>'+
+    '<div class="field"><label>备注</label><textarea id="a_rem">'+escapeHtml(a.remark||'')+'</textarea></div>';
+  openModal({ title:isNew?'新增账号':'编辑账号', body, actions:[
+    {label:'取消', onClick:c=>c()},
+    {label:'保存', primary:true, onClick:async c=>{
+      const name=$('#a_name').value.trim(), account=$('#a_acc').value.trim(), password=$('#a_pw').value;
+      if(!name){toast('名称必填','err');return;}
+      const devId=$('#a_dev').value; const devName=devices.find(d=>d.id===devId);
+      const obj={id:isNew?uid():it.id, name, account, password, deviceId:devId||'', deviceName:devName?devName.name:'', remark:$('#a_rem').value.trim(), createdAt:isNew?nowISO():(it.createdAt||nowISO()), updatedAt:nowISO()};
+      let arr=await loadEncrypted(KEY.acc); if(arr===null) arr=[];
+      if(isNew) arr.unshift(obj); else arr=arr.map(x=>x.id===obj.id?obj:x);
+      try{ await saveEncrypted(KEY.acc, arr); c(); await renderIPAccounts(); toast('已加密保存','ok'); }
+      catch(e){ toast('保存失败','err'); }
+    }}
+  ]});
+  const gen=$('#genpw'); gen.onclick=()=>{ $('#a_pw').value=genPassword(+$('#pwlen').value, $('#pw_sym').checked); };
+  const tog=$('#togglepw'); tog.onclick=()=>{ const inp=$('#a_pw'); inp.type=inp.type==='password'?'text':'password'; tog.textContent=inp.type==='password'?'显示':'隐藏'; };
+  $('#pwlen').oninput=e=>{ $('#pwlenv').textContent=e.target.value+' 位'; };
+}
+function genPassword(len, sym){
+  const lower='abcdefghijklmnopqrstuvwxyz', upper=lower.toUpperCase(), num='0123456789', s='!@#$%^&*()-_=+';
+  let pool=lower+upper+num; if(sym) pool+=s;
+  const arr=new Uint32Array(len); (window.crypto||require('crypto')).getRandomValues(arr);
+  let out=''; for(let i=0;i<len;i++) out+=pool[arr[i]%pool.length];
+  return out;
+}
+async function delAcc(a){ if(await confirmModal('删除账号「'+a.name+'」？（加密数据）')){ let arr=await loadEncrypted(KEY.acc); if(arr===null) arr=[]; arr=arr.filter(x=>x.id!==a.id); await saveEncrypted(KEY.acc, arr); await renderIPAccounts(); toast('已删除','ok'); } }
+async function exportAcc(){ let arr=await loadEncrypted(KEY.acc); if(arr===null) arr=[]; download('账号密码-加密备份-'+todayKey()+'.json', JSON.stringify({encrypted:true, data:Store.get(KEY.acc)},null,2), 'application/json'); toast('已导出加密备份','ok'); }
+function importAcc(){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='.json';
+  inp.onchange=async ()=>{
+    const f=inp.files[0]; if(!f) return; const txt=await f.text();
+    try{ const j=JSON.parse(txt); const cipher=j.data||txt; await MasterKey.ensure().catch(()=>{}); if(!MasterKey.get()) return;
+      // 验证可解密
+      let arr; try{ arr=JSON.parse(await Sec.decrypt(cipher)); }catch(e){ toast('解密失败：主密码或文件错误','err'); return; }
+      if(!Array.isArray(arr)){ toast('文件格式不正确','err'); return; }
+      if(await confirmModal('导入将覆盖当前账号数据，确定？')){ Store.set(KEY.acc, cipher); await renderIPAccounts(); toast('已导入','ok'); }
+    }catch(e){ toast('解析失败','err'); }
+  };
+  inp.click();
+}
+
+/* ============== 公司网址（加密） ============== */
+let urlFilter='';
+async function renderUrls(){
+  const view=$('#view');
+  const cats=await loadUrlCats();
+  view.innerHTML=
+    '<div class="view-head"><h2>🌍 公司网址</h2><div class="spacer"></div>'+btn('+ 新增网址','primary',()=>urlEdit(null))+'</div>'+
+    '<div class="row" style="margin-bottom:12px"><input class="search" id="urlSearch" placeholder="搜索 名称/网址/账号/分类"><div class="spacer"></div><span id="urlCats" class="row"></span></div>'+
+    '<div class="grid cols-2" id="urlGrid"></div>';
+  const q=urlFilter.trim().toLowerCase();
+  let arr=await loadEncrypted(KEY.url);
+  if(arr===null){ $('#urlGrid').innerHTML='<div class="empty">无法解密，请确认主密码</div>'; return; }
+  const catSet=new Set(arr.map(u=>u.category||'默认'));
+  $('#urlCats').innerHTML='<span class="chip '+(!urlFilter?'active':'')+'" data-c="">全部</span>'+Array.from(catSet).map(c=>'<span class="chip" data-c="'+escapeHtml(c)+'">'+escapeHtml(c)+'</span>').join('');
+  $$('#urlCats .chip').forEach(ch=>ch.onclick=async ()=>{ urlFilter=ch.dataset.c?('cat:'+ch.dataset.c):''; await renderUrls(); });
+  let shown=arr;
+  if(q){ shown = q.startsWith('cat:')? arr.filter(u=>(u.category||'默认')===q.slice(4)) : arr.filter(u=>[u.name,u.url,u.account,u.category].join(' ').toLowerCase().includes(q)); }
+  const grid=$('#urlGrid');
+  if(!shown.length){ grid.innerHTML='<div class="empty">暂无网址</div>'; return; }
+  shown.forEach(u=>{
+    const el=document.createElement('div'); el.className='card';
+    el.innerHTML='<div class="row" style="justify-content:space-between"><b>'+escapeHtml(u.name||'')+'</b>'+(u.category?'<span class="tag cat">'+escapeHtml(u.category)+'</span>':'')+'</div>'+
+      '<div class="mono muted" style="font-size:13px;margin:6px 0;word-break:break-all">'+escapeHtml(u.url||'')+'</div>'+
+      (u.account?'<div class="muted" style="font-size:12px">账号：'+escapeHtml(u.account)+'</div>':'')+
+      '<div class="row" style="margin-top:10px">'+btn('🔗 打开','sm primary',()=>openUrl(u.url))+btn('复制账号','sm',()=>copyText(u.account||''))+btn('复制密码','sm',()=>copyText(u.password||''))+btn('编辑','sm',()=>urlEdit(u))+btn('删','sm danger',()=>delUrl(u))+'</div>';
+    grid.appendChild(el);
+  });
+  const s=$('#urlSearch'); if(s) s.oninput=async e=>{ urlFilter=e.target.value; await renderUrls(); };
+}
+function openUrl(u){ if(!u) return; window.open(/^https?:\/\//.test(u)?u:('https://'+u), '_blank'); }
+async function loadUrlCats(){ return []; }
+async function urlEdit(it){
+  await MasterKey.ensure().catch(()=>{}); if(!MasterKey.get()) return;
+  const isNew=!it; const u=it||{name:'',url:'',account:'',password:'',category:''};
+  const body=document.createElement('div');
+  body.innerHTML='<div class="field"><label>名称</label><input id="u_name" value="'+escapeHtml(u.name||'')+'"></div>'+
+    '<div class="field"><label>网址</label><input id="u_url" class="mono" value="'+escapeHtml(u.url||'')+'" placeholder="https://..."></div>'+
+    '<div class="field-row"><div class="field"><label>登录账号</label><input id="u_acc" value="'+escapeHtml(u.account||'')+'"></div>'+
+      '<div class="field"><label>密码</label><input id="u_pw" type="password" value="'+escapeHtml(u.password||'')+'"></div></div>'+
+    '<div class="field"><label>分类</label><input id="u_cat" value="'+escapeHtml(u.category||'')+'" placeholder="如：内部系统/供应商/政府"></div>';
+  openModal({ title:isNew?'新增网址':'编辑网址', body, actions:[
+    {label:'取消', onClick:c=>c()},
+    {label:'保存', primary:true, onClick:async c=>{
+      const name=$('#u_name').value.trim(), url=$('#u_url').value.trim(); if(!name){toast('名称必填','err');return;}
+      const obj={id:isNew?uid():it.id, name, url, account:$('#u_acc').value.trim(), password:$('#u_pw').value, category:$('#u_cat').value.trim()||'默认', createdAt:isNew?nowISO():(it.createdAt||nowISO()), updatedAt:nowISO()};
+      let arr=await loadEncrypted(KEY.url); if(arr===null) arr=[];
+      if(isNew) arr.unshift(obj); else arr=arr.map(x=>x.id===obj.id?obj:x);
+      try{ await saveEncrypted(KEY.url, arr); c(); await renderUrls(); toast('已加密保存','ok'); }catch(e){ toast('保存失败','err'); }
+    }}
+  ]});
+}
+async function delUrl(u){ if(await confirmModal('删除网址「'+u.name+'」？')){ let arr=await loadEncrypted(KEY.url); if(arr===null) arr=[]; arr=arr.filter(x=>x.id!==u.id); await saveEncrypted(KEY.url, arr); await renderUrls(); toast('已删除','ok'); } }
+
+/* ============== 设备运维记录 ============== */
+let devFilter='';
+function renderDevm(){
+  const view=$('#view'); const all=Store.get(KEY.dev,[])||[];
+  const q=devFilter.trim().toLowerCase();
+  const list=q? all.filter(d=>[d.deviceName,d.type,d.model,d.serialNumber,d.location,status].join(' ').toLowerCase().includes(q)) : all;
+  const total=all.length; const replacements=all.reduce((s,d)=>s+(d.replacementRecords?d.replacementRecords.length:0),0);
+  const expiring=all.filter(d=>d.warrantyExpire && new Date(d.warrantyExpire)<new Date(Date.now()+1000*60*60*24*30) && new Date(d.warrantyExpire)>=new Date()).length;
+  view.innerHTML=
+    '<div class="view-head"><h2>🔧 设备运维记录</h2><div class="spacer"></div>'+btn('+ 新增设备','primary',()=>devEdit(null))+'</div>'+
+    '<div class="stat-box"><div class="stat-pill"><span class="muted">设备总数</span><b>'+total+'</b></div>'+
+      '<div class="stat-pill"><span class="muted">更换记录</span><b>'+replacements+'</b></div>'+
+      '<div class="stat-pill"><span class="muted">30天内保修到期</span><b style="color:var(--amber)">'+expiring+'</b></div></div>'+
+    '<div class="row" style="margin-bottom:12px"><input class="search" id="devSearch" placeholder="搜索 设备名/型号/序列号/位置">'+btn('⬇ 导出JSON','sm',()=>download('设备运维-'+todayKey()+'.json', JSON.stringify(all,null,2),'application/json'))+'</div>'+
+    '<div class="grid cols-2" id="devGrid"></div>';
+  const grid=$('#devGrid');
+  if(!list.length){ grid.innerHTML='<div class="empty">暂无设备运维记录</div>'; }
+  list.forEach(d=>{ const el=document.createElement('div'); el.className='card';
+    const warExp=d.warrantyExpire? new Date(d.warrantyExpire)<new Date(Date.now()+1000*60*60*24*30) : false;
+    const reps=(d.replacementRecords||[]).map(r=>'<li style="margin:2px 0">'+escapeHtml(r.date||'')+' · '+escapeHtml(r.part||'')+' · '+escapeHtml(r.remark||'')+'</li>').join('');
+    el.innerHTML='<div class="row" style="justify-content:space-between"><b>'+escapeHtml(d.deviceName||'')+'</b>'+(d.status?statusTag(d.status):'')+'</div>'+
+      '<div class="muted" style="font-size:12px;margin:4px 0">'+[d.type,d.model,d.serialNumber].filter(Boolean).map(escapeHtml).join(' · ')+'</div>'+
+      '<div class="meta" style="font-size:12px">位置：'+(d.location||'—')+'　购入：'+(d.purchaseDate||'—')+'　安装：'+(d.installDate||'—')+'</div>'+
+      (d.warrantyExpire?'<div class="meta" style="font-size:12px">保修至：'+(warExp?'<span style="color:var(--amber);font-weight:700">'+escapeHtml(d.warrantyExpire)+'（临近到期）</span>':escapeHtml(d.warrantyExpire))+'</div>':'')+
+      (d.replacementRecords&&d.replacementRecords.length?'<details style="margin-top:8px"><summary style="cursor:pointer;font-size:13px">硬件更换记录（'+d.replacementRecords.length+'）</summary><ul style="margin:6px 0;padding-left:18px;font-size:12px">'+reps+'</ul></details>':'')+
+      '<div class="row" style="margin-top:10px">'+btn('更换记录','sm',()=>repEdit(d))+btn('编辑','sm',()=>devEdit(d))+btn('删','sm danger',()=>delDev(d))+'</div>';
+    grid.appendChild(el);
+  });
+  const s=$('#devSearch'); if(s) s.oninput=e=>{ devFilter=e.target.value; renderDevm(); };
+}
+function devEdit(it){
+  const isNew=!it; const d=it||{deviceName:'',deviceId:'',type:'',serialNumber:'',model:'',purchaseDate:'',installDate:'',warrantyExpire:'',status:'online',location:'',remark:'',replacementRecords:[]};
+  const body=document.createElement('div');
+  body.innerHTML=
+    '<div class="field-row"><div class="field"><label>设备名称</label><input id="dv_name" value="'+escapeHtml(d.deviceName)+'"></div>'+
+      '<div class="field"><label>设备编号</label><input id="dv_id" value="'+escapeHtml(d.deviceId||'')+'"></div></div>'+
+    '<div class="field-row"><div class="field"><label>类型</label><input id="dv_type" value="'+escapeHtml(d.type||'')+'"></div>'+
+      '<div class="field"><label>型号</label><input id="dv_model" value="'+escapeHtml(d.model||'')+'"></div></div>'+
+    '<div class="field-row"><div class="field"><label>序列号</label><input id="dv_sn" value="'+escapeHtml(d.serialNumber||'')+'"></div>'+
+      '<div class="field"><label>位置</label><input id="dv_loc" value="'+escapeHtml(d.location||'')+'"></div></div>'+
+    '<div class="field-row"><div class="field"><label>购入日期</label><input type="date" id="dv_buy" value="'+escapeHtml(d.purchaseDate||'')+'"></div>'+
+      '<div class="field"><label>安装日期</label><input type="date" id="dv_ins" value="'+escapeHtml(d.installDate||'')+'"></div></div>'+
+    '<div class="field-row"><div class="field"><label>保修到期</label><input type="date" id="dv_war" value="'+escapeHtml(d.warrantyExpire||'')+'"></div>'+
+      '<div class="field"><label>状态</label><select id="dv_st">'+['online','offline','fault','idle'].map(s=>'<option value="'+s+'"'+(d.status===s?' selected':'')+'>'+(s==='online'?'在线':s==='offline'?'离线':s==='fault'?'故障':'闲置')+'</option>').join('')+'</select></div></div>'+
+    '<div class="field"><label>备注</label><textarea id="dv_rem">'+escapeHtml(d.remark||'')+'</textarea></div>';
+  openModal({ title:isNew?'新增设备':'编辑设备', body, size:'', actions:[
+    {label:'取消', onClick:c=>c()},
+    {label:'保存', primary:true, onClick:c=>{
+      const name=$('#dv_name').value.trim(); if(!name){toast('设备名称必填','err');return;}
+      const obj={id:isNew?uid():it.id, deviceName:name, deviceId:$('#dv_id').value.trim(), type:$('#dv_type').value.trim(), serialNumber:$('#dv_sn').value.trim(), model:$('#dv_model').value.trim(), purchaseDate:$('#dv_buy').value, installDate:$('#dv_ins').value, warrantyExpire:$('#dv_war').value, status:$('#dv_st').value, location:$('#dv_loc').value.trim(), remark:$('#dv_rem').value.trim(), replacementRecords:d.replacementRecords||[], createdAt:isNew?nowISO():d.createdAt, updatedAt:nowISO()};
+      const arr=Store.get(KEY.dev,[]); if(isNew) arr.unshift(obj); else arr.forEach((x,i)=>{ if(x.id===obj.id) arr[i]=obj; }); Store.set(KEY.dev, arr);
+      c(); renderDevm(); toast('已保存','ok');
+    }}
+  ]});
+}
+function repEdit(d){
+  const recs=(d.replacementRecords||[]).slice();
+  const body=document.createElement('div');
+  const renderList=()=>{ const ul=$('#repList'); if(!ul) return; ul.innerHTML=recs.length? recs.map((r,i)=>'<li style="display:flex;gap:8px;align-items:center;margin:4px 0"><span style="flex:1">'+escapeHtml(r.date||'')+' · '+escapeHtml(r.part||'')+' · '+escapeHtml(r.remark||'')+'</span><button class="btn sm danger" data-i="'+i+'">删</button></li>').join(''):'<li class="muted">暂无更换记录</li>';
+    $$('#repList button[data-i]').forEach(b=>b.onclick=()=>{ recs.splice(+b.dataset.i,1); renderList(); }); };
+  body.innerHTML='<div id="repList" style="list-style:none;padding:0;margin:0 0 12px"></div>'+
+    '<div class="field-row"><div class="field"><label>日期</label><input type="date" id="r_date"></div>'+
+      '<div class="field"><label>更换部件</label><input id="r_part" placeholder="如：硬盘/电源"></div></div>'+
+    '<div class="field"><label>备注</label><input id="r_rem" placeholder="原因/处理"></div>'+
+    btn('+ 添加更换记录','sm primary',()=>{ const date=$('#r_date').value, part=$('#r_part').value.trim(); if(!date||!part){toast('日期和部件必填','err');return;} recs.push({date,part,remark:$('#r_rem').value.trim()}); renderList(); $('#r_part').value=''; $('#r_rem').value=''; }) ;
+  openModal({ title:'硬件更换记录 - '+d.deviceName, body, size:'', actions:[
+    {label:'取消', onClick:c=>c()},
+    {label:'保存', primary:true, onClick:c=>{
+      const arr=Store.get(KEY.dev,[]); arr.forEach((x,i)=>{ if(x.id===d.id) arr[i]={...x, replacementRecords:recs, updatedAt:nowISO()}; }); Store.set(KEY.dev, arr);
+      c(); renderDevm(); toast('已保存','ok');
+    }}
+  ]});
+  renderList();
+}
+async function delDev(d){ if(await confirmModal('删除设备「'+d.deviceName+'」及其运维记录？')){ Store.set(KEY.dev,(Store.get(KEY.dev,[])||[]).filter(x=>x.id!==d.id)); renderDevm(); toast('已删除','ok'); } }
+
+/* ============== 网络维护记录 ============== */
+let netFilter='';
+function renderNetm(){
+  const view=$('#view'); const all=Store.get(KEY.net,[])||[];
+  const q=netFilter.trim().toLowerCase();
+  const list=q? all.filter(n=>[n.affectedScope,n.cause,n.handler,n.result,n.severity,n.status].join(' ').toLowerCase().includes(q)) : all;
+  const avg=all.length? Math.round(all.reduce((s,n)=>s+(parseFloat(n.duration)||0),0)/all.length*10)/10 : 0;
+  const sevCount={high:0,mid:0,low:0}; all.forEach(n=>{ if(sevCount[n.severity]!=null) sevCount[n.severity]++; });
+  view.innerHTML=
+    '<div class="view-head"><h2>🌐 网络维护记录</h2><div class="spacer"></div>'+btn('+ 新增故障记录','primary',()=>netEdit(null))+'</div>'+
+    '<div class="stat-box"><div class="stat-pill"><span class="muted">故障总数</span><b>'+all.length+'</b></div>'+
+      '<div class="stat-pill"><span class="muted">平均时长(h)</span><b>'+avg+'</b></div>'+
+      '<div class="stat-pill"><span class="muted">严重</span><b style="color:var(--red)">'+sevCount.high+'</b></div>'+
+      '<div class="stat-pill"><span class="muted">一般</span><b style="color:var(--amber)">'+sevCount.mid+'</b></div>'+
+      '<div class="stat-pill"><span class="muted">轻微</span><b style="color:var(--green)">'+sevCount.low+'</b></div></div>'+
+    '<div class="row" style="margin-bottom:12px"><input class="search" id="netSearch" placeholder="搜索 影响范围/原因/处理人">'+btn('⬇ 导出JSON','sm',()=>download('网络维护-'+todayKey()+'.json', JSON.stringify(all,null,2),'application/json'))+'</div>'+
+    '<div class="list" id="netList"></div>';
+  const box=$('#netList');
+  if(!list.length){ box.innerHTML='<div class="empty">暂无网络维护记录</div>'; }
+  list.forEach(n=>{
+    const el=document.createElement('div'); el.className='card';
+    el.innerHTML='<div class="row" style="justify-content:space-between"><b>'+escapeHtml(n.incidentDate||'')+' 故障</b><span>'+sevTag(n.severity)+' '+statTag(n.status)+'</span></div>'+
+      '<div class="meta" style="font-size:12px;margin:4px 0">影响范围：'+(n.affectedScope||'—')+(n.affectedDevices?'（'+escapeHtml(n.affectedDevices)+'）':'')+'　时长：'+(n.duration||'0')+'h　处理人：'+(n.handler||'—')+'</div>'+
+      '<div class="muted" style="font-size:13px">原因：'+(escapeHtml(n.cause||'—'))+'</div>'+
+      '<div class="muted" style="font-size:13px">处理：'+(escapeHtml(n.handlingProcess||'—'))+'</div>'+
+      (n.result?'<div class="muted" style="font-size:13px">结果：'+escapeHtml(n.result)+'</div>':'')+
+      '<div class="row" style="margin-top:10px">'+btn('编辑','sm',()=>netEdit(n))+btn('删','sm danger',()=>delNet(n))+'</div>';
+    box.appendChild(el);
+  });
+  const s=$('#netSearch'); if(s) s.oninput=e=>{ netFilter=e.target.value; renderNetm(); };
+}
+function sevTag(s){ const m={high:['严重','sev-high'],mid:['一般','sev-mid'],low:['轻微','sev-low']}; const x=m[s]||['一般','sev-mid']; return '<span class="tag '+x[1]+'">'+x[0]+'</span>'; }
+function statTag(s){ const m={done:['已解决','stat-done'],doing:['处理中','stat-doing'],closed:['已关闭','stat-todo']}; const x=m[s]||['处理中','stat-doing']; return '<span class="tag '+x[1]+'">'+x[0]+'</span>'; }
+function netEdit(it){
+  const isNew=!it; const n=it||{incidentDate:todayKey(),startTime:'',endTime:'',duration:'',affectedScope:'',affectedDevices:'',cause:'',handlingProcess:'',result:'',handler:'',impactAssessment:'',preventiveMeasures:'',remark:'',severity:'mid',status:'doing'};
+  const body=document.createElement('div');
+  body.innerHTML=
+    '<div class="field-row"><div class="field"><label>故障日期</label><input type="date" id="n_date" value="'+escapeHtml(n.incidentDate||todayKey())+'"></div>'+
+      '<div class="field"><label>影响范围</label><input id="n_scope" value="'+escapeHtml(n.affectedScope||'')+'"></div></div>'+
+    '<div class="field-row"><div class="field"><label>开始时间</label><input type="time" id="n_st" value="'+escapeHtml(n.startTime||'')+'"></div>'+
+      '<div class="field"><label>结束时间</label><input type="time" id="n_et" value="'+escapeHtml(n.endTime||'')+'"></div></div>'+
+    '<div class="field-row"><div class="field"><label>持续时长(h)</label><input id="n_dur" value="'+escapeHtml(n.duration||'')+'"></div>'+
+      '<div class="field"><label>影响设备</label><input id="n_dev" value="'+escapeHtml(n.affectedDevices||'')+'" placeholder="逗号分隔"></div></div>'+
+    '<div class="field"><label>故障原因</label><textarea id="n_cause">'+escapeHtml(n.cause||'')+'</textarea></div>'+
+    '<div class="field"><label>处理过程</label><textarea id="n_proc">'+escapeHtml(n.handlingProcess||'')+'</textarea></div>'+
+    '<div class="field"><label>处理结果</label><input id="n_res" value="'+escapeHtml(n.result||'')+'"></div>'+
+    '<div class="field-row"><div class="field"><label>处理人</label><input id="n_han" value="'+escapeHtml(n.handler||'')+'"></div>'+
+      '<div class="field"><label>严重程度</label><select id="n_sev">'+['high','mid','low'].map(s=>'<option value="'+s+'"'+(n.severity===s?' selected':'')+'>'+(s==='high'?'严重':s==='mid'?'一般':'轻微')+'</option>').join('')+'</select></div></div>'+
+    '<div class="field"><label>状态</label><select id="n_st2">'+['doing','done','closed'].map(s=>'<option value="'+s+'"'+(n.status===s?' selected':'')+'>'+(s==='doing'?'处理中':s==='done'?'已解决':'已关闭')+'</option>').join('')+'</select></div>'+
+    '<div class="field"><label>影响评估</label><textarea id="n_imp">'+escapeHtml(n.impactAssessment||'')+'</textarea></div>'+
+    '<div class="field"><label>预防措施</label><textarea id="n_pre">'+escapeHtml(n.preventiveMeasures||'')+'</textarea></div>'+
+    '<div class="field"><label>备注</label><textarea id="n_rem">'+escapeHtml(n.remark||'')+'</textarea></div>';
+  openModal({ title:isNew?'新增故障记录':'编辑故障记录', body, size:'wide', actions:[
+    {label:'取消', onClick:c=>c()},
+    {label:'保存', primary:true, onClick:c=>{
+      const obj={id:isNew?uid():it.id, incidentDate:$('#n_date').value, startTime:$('#n_st').value, endTime:$('#n_et').value, duration:$('#n_dur').value, affectedScope:$('#n_scope').value.trim(), affectedDevices:$('#n_dev').value.trim(), cause:$('#n_cause').value.trim(), handlingProcess:$('#n_proc').value.trim(), result:$('#n_res').value.trim(), handler:$('#n_han').value.trim(), impactAssessment:$('#n_imp').value.trim(), preventiveMeasures:$('#n_pre').value.trim(), remark:$('#n_rem').value.trim(), severity:$('#n_sev').value, status:$('#n_st2').value, createdAt:isNew?nowISO():n.createdAt, updatedAt:nowISO()};
+      const arr=Store.get(KEY.net,[]); if(isNew) arr.unshift(obj); else arr.forEach((x,i)=>{ if(x.id===obj.id) arr[i]=obj; }); Store.set(KEY.net, arr);
+      c(); renderNetm(); toast('已保存','ok');
+    }}
+  ]});
+}
+async function delNet(n){ if(await confirmModal('删除该网络故障记录？')){ Store.set(KEY.net,(Store.get(KEY.net,[])||[]).filter(x=>x.id!==n.id)); renderNetm(); toast('已删除','ok'); } }
+
+/* ============== 知识库 ============== */
+let knowFilter='';
+function renderKnow(){
+  const view=$('#view'); const all=Store.get(KEY.know,[])||[];
+  const q=knowFilter.trim().toLowerCase();
+  const list=q? all.filter(k=>[k.title,k.tag,k.content].join(' ').toLowerCase().includes(q)) : all;
+  view.innerHTML=
+    '<div class="view-head"><h2>📁 知识库</h2><div class="spacer"></div>'+btn('+ 新建','primary',()=>knowEdit(null))+'</div>'+
+    '<div class="row" style="margin-bottom:12px"><input class="search" id="knowSearch" placeholder="搜索 标题/标签/内容">'+btn('⬇ 导出JSON','sm',()=>download('知识库-'+todayKey()+'.json', JSON.stringify(all,null,2),'application/json'))+'</div>'+
+    '<div class="grid cols-3" id="knowGrid"></div>';
+  const grid=$('#knowGrid');
+  if(!list.length){ grid.innerHTML='<div class="empty">知识库空空如也，记录点有用的东西吧</div>'; }
+  list.forEach(k=>{
+    const el=document.createElement('div'); el.className='kb-card';
+    el.innerHTML='<h4>'+escapeHtml(k.title)+'</h4>'+(k.tag?'<span class="tag cat">'+escapeHtml(k.tag)+'</span>':'')+
+      '<div class="content" style="margin-top:6px">'+escapeHtml(k.content||'')+'</div>'+
+      '<div class="row" style="margin-top:10px">'+btn('详情','sm',()=>knowView(k))+btn('编辑','sm',()=>knowEdit(k))+btn('删','sm danger',()=>delKnow(k))+'</div>';
+    grid.appendChild(el);
+  });
+  const s=$('#knowSearch'); if(s) s.oninput=e=>{ knowFilter=e.target.value; renderKnow(); };
+}
+function knowEdit(it){
+  const isNew=!it; const k=it||{title:'',tag:'',content:'',type:'note'};
+  const body=document.createElement('div');
+  body.innerHTML='<div class="field"><label>标题</label><input id="k_title" value="'+escapeHtml(k.title)+'"></div>'+
+    '<div class="field-row"><div class="field"><label>标签</label><input id="k_tag" value="'+escapeHtml(k.tag||'')+'" placeholder="分类标签"></div>'+
+      '<div class="field"><label>类型</label><select id="k_type"><option value="note"'+(k.type==='note'?' selected':'')+'>笔记</option><option value="doc"'+(k.type==='doc'?' selected':'')+'>文档</option><option value="link"'+(k.type==='link'?' selected':'')+'>链接</option></select></div></div>'+
+    '<div class="field"><label>内容</label><textarea id="k_content" style="min-height:140px">'+escapeHtml(k.content||'')+'</textarea></div>';
+  openModal({ title:isNew?'新建条目':'编辑条目', body, actions:[
+    {label:'取消', onClick:c=>c()},
+    {label:'保存', primary:true, onClick:c=>{
+      const title=$('#k_title').value.trim(); if(!title){toast('标题必填','err');return;}
+      const obj={id:isNew?uid():it.id, title, tag:$('#k_tag').value.trim(), content:$('#k_content').value, type:$('#k_type').value, createdAt:isNew?nowISO():(it.createdAt||nowISO())};
+      const arr=Store.get(KEY.know,[]); if(isNew) arr.unshift(obj); else arr.forEach((x,i)=>{ if(x.id===obj.id) arr[i]=obj; }); Store.set(KEY.know, arr);
+      c(); renderKnow(); toast('已保存','ok');
+    }}
+  ]});
+}
+function knowView(k){
+  const body=document.createElement('div');
+  body.innerHTML='<div class="field"><label>标题</label><div>'+escapeHtml(k.title)+'</div></div>'+
+    (k.tag?'<div class="field"><label>标签</label><div><span class="tag cat">'+escapeHtml(k.tag)+'</span></div></div>':'')+
+    '<div class="field"><label>内容</label><pre class="md-pre">'+escapeHtml(k.content||'')+'</pre></div>'+
+    '<div class="muted" style="font-size:12px">创建：'+fmtTime(k.createdAt)+'</div>';
+  openModal({ title:'知识库详情', body, size:'wide', actions:[{label:'关闭', primary:true, onClick:c=>c()}] });
+}
+async function delKnow(k){ if(await confirmModal('删除该知识条目？')){ Store.set(KEY.know,(Store.get(KEY.know,[])||[]).filter(x=>x.id!==k.id)); renderKnow(); toast('已删除','ok'); } }
+
+/* ============== 周报导出 ============== */
+function renderWeek(){
+  const view=$('#view'); const md=buildWeekly();
+  view.innerHTML=
+    '<div class="view-head"><h2>📄 周报导出</h2><span class="muted">过去 7 天（'+md.range+'）</span><div class="spacer"></div>'+
+      btn('复制','',()=>{copyText(md.text); toast('已复制','ok');})+btn('下载 .md','primary',()=>{download('周报-'+todayKey()+'.md', md.text, 'text/markdown'); toast('已下载','ok'); })+'</div>'+
+    '<div class="card"><pre class="md-pre">'+escapeHtml(md.text)+'</pre></div>';
+}
+function buildWeekly(){
+  const end=new Date(); const start=new Date(end.getTime()-6*86400000);
+  const inRange=iso=>{ const t=new Date(iso).getTime(); return t>=start.getTime() && t<=end.getTime()+86400000; };
+  const todos=(Store.get(KEY.todo,[])||[]).filter(t=>t.createdAt&&inRange(t.createdAt));
+  const focus=(Store.get(KEY.focus,[])||[]).filter(t=>t.createdAt&&inRange(t.createdAt));
+  const plan=Store.get(KEY.month,{})||{}; let mItems=[];
+  Object.keys(plan).forEach(d=>plan[d].forEach(it=>{ if(it.createdAt&&inRange(it.createdAt)||(it.updatedAt&&inRange(it.updatedAt))) mItems.push({date:d, ...it}); }));
+  const dev=(Store.get(KEY.dev,[])||[]).filter(d=>d.updatedAt&&inRange(d.updatedAt));
+  const net=(Store.get(KEY.net,[])||[]).filter(n=>n.createdAt&&inRange(n.createdAt));
+  const know=(Store.get(KEY.know,[])||[]).filter(k=>k.createdAt&&inRange(k.createdAt));
+  const L=[];
+  L.push('# 工作周报（'+fmtDate(start)+' ~ '+fmtDate(end)+'）');
+  L.push('');
+  L.push('## 一、今日待办（本周新增 '+todos.length+'）');
+  todos.forEach(t=>L.push('- ['+(t.done?'x':' ')+'] '+t.text));
+  L.push('');
+  L.push('## 二、今日聚焦（'+focus.length+'）');
+  focus.forEach(t=>L.push('- ['+(t.done?'x':' ')+'] '+t.text));
+  L.push('');
+  L.push('## 三、月度计划进展（'+mItems.length+'）');
+  mItems.forEach(it=>L.push('- '+it.date+' · ['+(isComplete(it)?'x':' ')+'] '+it.text+(it.category?'（'+it.category+'）':'')));
+  L.push('');
+  L.push('## 四、设备运维（'+dev.length+'）');
+  dev.forEach(d=>L.push('- '+escapeHtml(d.deviceName||'')+(d.replacementRecords&&d.replacementRecords.length?('：'+d.replacementRecords.length+' 次更换'):'')));
+  L.push('');
+  L.push('## 五、网络维护（'+net.length+'）');
+  net.forEach(n=>L.push('- '+escapeHtml(n.incidentDate||'')+' · '+escapeHtml(n.cause||'')+'（'+(n.severity==='high'?'严重':n.severity==='low'?'轻微':'一般')+'）'));
+  L.push('');
+  L.push('## 六、知识沉淀（'+know.length+'）');
+  know.forEach(k=>L.push('- '+escapeHtml(k.title||'')));
+  L.push('');
+  L.push('> 由「个人工作台」自动生成');
+  return { range:fmtDate(start)+' ~ '+fmtDate(end), text:L.join('\n') };
+}
+
+/* ============================ WebDAV 同步层（坚果云 + 无服务器代理） ============================ */
+const SYNC_KEYS=['todayTodos','tasks','monthlyPlan','yearlyArchive','ipDevices','encryptedAccounts','encryptedUrls','deviceMaintenance','networkMaintenance','knowledge'];
+const SYNC_FOLDER='工作台';
+const SYNC_META_KEY='wbSyncMeta'; // { [key]: updatedAt }
+const SYNC_KEYSET_KEY='wbSyncKeyset'; // 动态登记的同步 key（新增模块自动纳入）
+// 不应同步的本地 key：同步配置(含坚果云密码)、同步元数据、动态集合自身
+const SYNC_BLACKLIST=new Set([SYNC_META_KEY, SYNC_KEYSET_KEY, 'webdavConfig']);
+// 动态登记：业务代码首次 Store.set(key) 时自动加入同步范围，新增模块无需改此处
+function registerSyncKey(k){
+  if(SYNC_BLACKLIST.has(k)) return;
+  const set=Store.get(SYNC_KEYSET_KEY, []) || [];
+  if(!set.includes(k)){ set.push(k); localStorage.setItem(SYNC_KEYSET_KEY, JSON.stringify(set)); }
+}
+// 当前应同步的全部 key = 初始 10 个 + 动态登记，剔除黑名单
+function getSyncKeys(){
+  const all=new Set([...(Store.get(SYNC_KEYSET_KEY, [])||[]), ...SYNC_KEYS]);
+  SYNC_BLACKLIST.forEach(k=>all.delete(k));
+  return [...all];
+}
+function fmtTime(ts){ const d=new Date(ts); const p=n=>String(n).padStart(2,'0'); return d.getHours()+':'+p(d.getMinutes())+':'+p(d.getSeconds()); }
+function getSyncMeta(){ return Store.get(SYNC_META_KEY, {}) || {}; }
+function setSyncMeta(m){ Store.set(SYNC_META_KEY, m); }
+
+const SyncStatus={
+  set(state, detail){
+    const pill=$('#syncPill'), pillText=$('#syncPillText'), nav=$('#navStatText'), panel=$('#syncStatus');
+    const map={idle:['off','离线'],syncing:['syncing','同步中…'],success:['ok','已连接'],error:['err','错误'],offline:['off','离线']};
+    const [cls,txt]=map[state]||map.idle;
+    if(pill){ pill.className='sync-pill '+cls; if(pillText) pillText.textContent=detail? txt+' · '+detail : txt; }
+    if(nav){ nav.textContent = detail? (txt+' · '+detail) : txt; }
+    if(panel){ panel.textContent = detail? (txt+'：'+detail) : txt; }
+  }
+};
+
+const Sync={
+  cfg:null, timers:{}, pending:[], restoring:false,
+  loadCfg(){ try{ this.cfg=JSON.parse(localStorage.getItem('webdavConfig')||'null'); }catch(e){ this.cfg=null; } return this.cfg; },
+  isConfigured(){ const c=this.cfg||this.loadCfg(); return !!(c && c.serverUrl && c.username && c.password); },
+  authHeader(){ const c=this.cfg; return 'Basic '+btoa(unescape(encodeURIComponent(c.username+':'+c.password))); },
+  folderPath(){ const c=this.cfg; return c.serverUrl.replace(/\/+$/,'')+'/dav/'+SYNC_FOLDER; },
+  async request(method, path, body, isBinary){
+    const c=this.cfg;
+    const headers={'Authorization':this.authHeader()};
+    if(c.secret) headers['X-Sync-Key']=c.secret;
+    if(isBinary!==true) headers['Content-Type']='application/json';
+    const init={method, headers};
+    if(body!==undefined && !['GET','HEAD','OPTIONS'].includes(method)){
+      init.body = (isBinary || typeof body==='string') ? body : JSON.stringify(body);
+    }
+    return fetch(path, init);
+  },
+  async testConnection(){
+    SyncStatus.set('syncing','测试中');
+    try{
+      const res=await this.request('HEAD', this.folderPath()+'/__probe__.json');
+      if(res.status===401){ SyncStatus.set('error','账号或应用密码错误'); return false; }
+      SyncStatus.set('success','上次 '+fmtTime(Date.now())); return true;
+    }catch(e){ SyncStatus.set('error','无法连接（'+(e&&e.message||'')+'）'); return false; }
+  },
+  async uploadData(key, payload){
+    const res=await this.request('PUT', this.folderPath()+'/'+key+'.json', payload);
+    if(res.status===401) throw new Error('认证失败');
+    if(res.status>=400) throw new Error('上传失败 HTTP '+res.status);
+    return true;
+  },
+  async downloadData(key){
+    const res=await this.request('GET', this.folderPath()+'/'+key+'.json');
+    if(res.status===404) return null;
+    if(res.status>=400) throw new Error('下载失败 HTTP '+res.status);
+    try{ return await res.json(); }catch(e){ throw new Error('解析失败'); }
+  },
+  async fileExists(key){
+    const res=await this.request('HEAD', this.folderPath()+'/'+key+'.json');
+    return res.status===200 || res.status===207;
+  },
+  async listFiles(){
+    try{
+      const res=await this.request('PROPFIND', this.folderPath(), '<?xml version="1.0"?><D:propfind xmlns:D="DAV:"><D:prop><D:resourcetype/><D:getetag/></D:prop></D:propfind>', true);
+      if(res.status!==207) return [];
+      const txt=await res.text();
+      return [...txt.matchAll(/<href>([^<]+)<\/href>/g)].map(m=>decodeURIComponent(m[1])).filter(h=>/\.json$/.test(h));
+    }catch(e){ return []; }
+  },
+  scheduleUpload(key){
+    if(this.restoring || !this.isConfigured()) return;
+    if(this.timers[key]) clearTimeout(this.timers[key]);
+    this.timers[key]=setTimeout(()=>this.pushKey(key), 3000);
+  },
+  async pushKey(key){
+    if(!this.isConfigured()) return;
+    const meta=getSyncMeta(); const ts=Date.now(); meta[key]=ts; setSyncMeta(meta);
+    try{
+      SyncStatus.set('syncing');
+      await this.uploadData(key, {updatedAt:ts, data:Store.get(key, null)});
+      SyncStatus.set('success','上次 '+fmtTime(Date.now()));
+    }catch(e){
+      SyncStatus.set('error', (e&&e.message)||'错误');
+      if(!navigator.onLine || /fetch|network|认证/i.test(e.message||'')) this.pending.push(key);
+    }
+  },
+  async syncAll(){
+    if(!this.isConfigured()){ toast('请先保存同步配置','err'); return; }
+    SyncStatus.set('syncing','全量上传');
+    try{
+      for(const key of getSyncKeys()){
+        const meta=getSyncMeta(); const ts=Date.now(); meta[key]=ts; setSyncMeta(meta);
+        await this.uploadData(key, {updatedAt:ts, data:Store.get(key, null)});
+      }
+      SyncStatus.set('success','上次 '+fmtTime(Date.now())); toast('已同步到云端','ok');
+    }catch(e){ SyncStatus.set('error', (e&&e.message)||'错误'); toast('同步失败：'+((e&&e.message)||''),'err'); }
+  },
+  async pullAll(){
+    if(!this.isConfigured()) return;
+    this.restoring=true; let changed=false;
+    try{
+      SyncStatus.set('syncing','拉取云端');
+      for(const key of getSyncKeys()){
+        let cloud; try{ cloud=await this.downloadData(key); }catch(e){ continue; }
+        if(!cloud) continue;
+        const meta=getSyncMeta(); const localTs=meta[key]||0;
+        if(cloud.updatedAt>localTs){
+          Store.set(key, cloud.data);
+          const m=getSyncMeta(); m[key]=cloud.updatedAt; setSyncMeta(m);
+          changed=true;
+        }
+      }
+      SyncStatus.set('success','上次 '+fmtTime(Date.now()));
+    }catch(e){ SyncStatus.set('error', (e&&e.message)||'错误'); }
+    finally{ this.restoring=false; }
+    if(changed){ refreshDashboard(); render(); toast('已从云端合并更新','ok'); }
+  },
+  async fullSync(){
+    if(!this.isConfigured()){ toast('请先保存同步配置','err'); return; }
+    SyncStatus.set('syncing','双向同步');
+    await this.pullAll();
+    await this.syncAll();
+  }
+};
+
+// 挂钩 Store.set / Store.del：所有模块数据变更后自动防抖上传到坚果云
+(function hookStore(){
+  const _set=Store.set.bind(Store), _del=Store.del.bind(Store);
+  Store.set=function(k,v){ _set(k,v); if(!SYNC_BLACKLIST.has(k)){ registerSyncKey(k); Sync.scheduleUpload(k); } };
+  Store.del=function(k){ _del(k); if(!SYNC_BLACKLIST.has(k)) Sync.scheduleUpload(k); };
+})();
+
+function initSync(){
+  Sync.loadCfg();
+  const box=$('#syncBox'), head=$('#syncHead');
+  if(head) head.onclick=()=>box.classList.toggle('collapsed');
+  if($('#cfgShow')) $('#cfgShow').onclick=()=>{ const p=$('#cfgPass'); p.type = p.type==='password'?'text':'password'; };
+  if($('#cfgSave')) $('#cfgSave').onclick=()=>{
+    const cfg={ serverUrl:$('#cfgUrl').value.trim(), username:$('#cfgUser').value.trim(), password:$('#cfgPass').value, secret:$('#cfgSecret').value.trim() };
+    if(!cfg.serverUrl||!cfg.username||!cfg.password){ toast('请填写完整的服务器地址、账号、应用密码','err'); return; }
+    localStorage.setItem('webdavConfig', JSON.stringify(cfg));
+    Sync.cfg=cfg; toast('配置已保存','ok'); Sync.testConnection();
+  };
+  if($('#cfgTest')) $('#cfgTest').onclick=()=>Sync.testConnection();
+  if($('#cfgSync')) $('#cfgSync').onclick=()=>Sync.fullSync();
+  if($('#syncBtn')) $('#syncBtn').onclick=()=>Sync.fullSync();
+  if(Sync.cfg){ $('#cfgUrl').value=Sync.cfg.serverUrl||''; $('#cfgUser').value=Sync.cfg.username||''; $('#cfgPass').value=Sync.cfg.password||''; $('#cfgSecret').value=Sync.cfg.secret||''; }
+  window.addEventListener('online', ()=>{ if(Sync.pending.length){ Sync.pending=[]; Sync.fullSync(); } else SyncStatus.set('success','已恢复'); });
+  window.addEventListener('offline', ()=>SyncStatus.set('offline','离线'));
+  if(!navigator.onLine) SyncStatus.set('offline','离线');
+  if(Sync.isConfigured()){ Sync.testConnection(); Sync.fullSync(); }
+  else SyncStatus.set('offline','未配置');
+}
+
+/* ============================ 初始化 ============================ */
+function tickClock(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); $('#clock').textContent=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
+function init(){
+  buildNav();
+  initSync();
+  $('#hamburger').onclick=()=>{ const sb=$('#sidebar'); sb.classList.toggle('open'); let bd=$('.backdrop'); if(sb.classList.contains('open')&&!bd){ bd=document.createElement('div'); bd.className='backdrop'; bd.onclick=()=>{ sb.classList.remove('open'); bd.remove(); }; document.body.appendChild(bd); } else if(!sb.classList.contains('open')&&bd){ bd.remove(); } };
+  tickClock(); setInterval(tickClock, 30000);
+  go('home');
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+</script>
+</body>
+</html>
