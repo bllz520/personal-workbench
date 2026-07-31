@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="zh-CN" class=""><head>
+<html lang="zh-CN">
+<head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>个人工作台</title>
@@ -282,8 +283,8 @@ td .ops{display:flex; gap:6px}
 <div class="app">
   <aside class="sidebar" id="sidebar">
     <div class="brand"><span class="logo">🔧</span> 个人工作台</div>
-    <nav class="nav" id="nav"><div class="nav-item active" data-id="home"><span class="ico">🏠</span><span>个人工作台</span></div><div class="nav-item" data-id="dash"><span class="ico">📊</span><span>数据看板</span></div><div class="nav-item" data-id="todo"><span class="ico">📋</span><span>今日待办</span></div><div class="nav-item" data-id="month"><span class="ico">📅</span><span>月度计划</span></div><div class="nav-item" data-id="year"><span class="ico">📚</span><span>年度回顾</span></div><div class="nav-item" data-id="info"><span class="ico">🖥️</span><span>信息化管理</span><span class="caret">▾</span></div><div class="nav-children"><div class="nav-item" data-id="ip"><span class="ico">🌐</span><span>公司网络IP</span></div><div class="nav-item" data-id="urls"><span class="ico">🌍</span><span>公司网址</span></div><div class="nav-item" data-id="devm"><span class="ico">🔧</span><span>设备运维记录</span></div><div class="nav-item" data-id="netm"><span class="ico">🌐</span><span>网络维护记录</span></div></div><div class="nav-item" data-id="know"><span class="ico">📁</span><span>知识库</span></div><div class="nav-item" data-id="week"><span class="ico">📄</span><span>周报导出</span></div><div class="nav-item"><span class="ico">🔄</span><span>同步数据</span></div><div class="nav-item"><span class="ico">☁️</span><span id="navStatText">同步中… · 发布中</span></div></nav>
-    <div class="sync-box" id="syncBox">
+    <nav class="nav" id="nav"></nav>
+    <div class="sync-box collapsed" id="syncBox">
       <div class="sync-head" id="syncHead"><span>☁️ 坚果云同步设置</span><span class="caret">▾</span></div>
       <div class="sync-body" id="syncBody">
         <div class="field"><label>服务器地址（代理网关 URL）</label><input id="cfgUrl" placeholder="https://xxx.apigw.tencentcs.com/release/wbproxy"></div>
@@ -301,7 +302,7 @@ td .ops{display:flex; gap:6px}
         <div class="row" style="margin:2px 0 4px">
           <button class="btn sm" id="cfgPublish" title="把当前页面壳发布到坚果云，SCF 的 /app/ 路由会直接托管，刷新页面地址即最新版">📤 发布到云端（SCF 托管）</button>
         </div>
-        <div class="sync-status" id="syncStatus">同步中…：发布中</div>
+        <div class="sync-status" id="syncStatus">未配置</div>
       </div>
     </div>
     <div class="foot">数据本地存储 · localStorage<br>加密：AES-256</div>
@@ -313,18 +314,18 @@ td .ops{display:flex; gap:6px}
       <h1 id="viewTitle">个人工作台</h1>
       <div class="spacer"></div>
       <button class="btn sm" id="syncBtn" title="立即双向同步">🔄 同步</button>
-      <span class="sync-pill syncing" id="syncPill"><span class="dot"></span><span id="syncPillText">同步中… · 发布中</span></span>
+      <span class="sync-pill off" id="syncPill"><span class="dot"></span><span id="syncPillText">未配置</span></span>
       <select id="themeSel" class="theme-sel" title="切换界面风格">
         <option value="teal">🟢 柔和蓝绿</option>
         <option value="mist">⚪ 米灰</option>
         <option value="dark">🌙 暗色</option>
       </select>
       <button class="btn sm" id="logoutBtn" title="退出 / 锁屏 / 清除本机数据">🔒 退出</button>
-      <div class="meta" id="clock">2026-07-31 18:16</div>
+      <div class="meta" id="clock"></div>
     </div>
 
-    <div class="dashbar" id="dashbar"><div class="metric c1"><div class="label">今日待办数</div><div class="value">1</div><div class="sub">共 1 项 · 完成 1</div></div><div class="metric c2"><div class="label">今日完成数</div><div class="value">1</div><div class="sub">完成率 100%</div></div><div class="metric c3"><div class="label">月度计划总数</div><div class="value">0</div><div class="sub">2026年7月</div></div><div class="metric c4"><div class="label">月度完成率</div><div class="value">0%</div><div class="sub">已完成 0 / 0</div></div></div>
-    <div class="view" id="view"><div class="view-head"><h2>👋 你好，今天也要高效推进</h2></div><div class="grid cols-3"><div class="card" style="cursor: pointer;"><div class="row" style="justify-content:space-between"><b>📋 今日待办</b></div><div style="font-size:28px;font-weight:800;margin:8px 0 2px">1 项</div><div class="muted" style="font-size:12px">未完 0 项</div></div><div class="card" style="cursor: pointer;"><div class="row" style="justify-content:space-between"><b>📅 本月计划</b></div><div style="font-size:28px;font-weight:800;margin:8px 0 2px">0 项</div><div class="muted" style="font-size:12px">完成率 0%</div></div></div><div class="card" style="margin-top: 14px;"><h3 style="margin:0 0 10px">🚀 快捷入口</h3><div class="row"><button class="btn primary" data-cb="ms8sespki4dofw">📋 今日待办</button><button class="btn " data-cb="ms8sespk7si9ov">📅 月度计划</button><button class="btn " data-cb="ms8sespk2y345z">📁 知识库</button><button class="btn " data-cb="ms8sespkdhtink">📄 生成周报</button><button class="btn " data-cb="ms8sespkt7bna2">🖥️ 信息化管理</button></div></div></div>
+    <div class="dashbar" id="dashbar"></div>
+    <div class="view" id="view"></div>
   </div>
 </div>
 
@@ -455,7 +456,7 @@ const MasterKey={
         '<div class="pw-strength" id="mkStrength"><span class="bar"><i></i></span><span class="txt"></span></div></div>';
       openModal({ title:'解锁加密数据', body, actions:[
         {label:'取消', onClick:c=>{ c(); reject(new Error('cancelled')); }},
-        {label:'解锁', primary:true, onClick:c=>{ const v=$('#mk').value; if(!v){toast('请输入密码','err');return;} MasterKey.set(v); c(); resolve(v); }}
+        {label:'解锁', primary:true, onClick:c=>{ const v=$('#mk').value; if(!v){toast('请输入密码','err');return;} c(); resolve(v); }}
       ]});
       const _mk=body.querySelector('#mk'), _st=body.querySelector('#mkStrength');
       if(_mk&&_st){ const _upd=()=>{ const r=evaluatePwd(_mk.value); _st.className='pw-strength '+(r.cls||''); _st.querySelector('.txt').textContent=r.label; }; _mk.addEventListener('input',_upd); _upd(); }
@@ -954,7 +955,21 @@ async function renderIPAccounts(){
   box.innerHTML='<div class="row" style="margin-bottom:10px"><input class="search" id="accSearch" placeholder="搜索 名称/账号/关联设备">'+
     '<div class="spacer"></div>'+btn('⬇ 导出','sm',exportAcc)+btn('⬆ 导入','sm',importAcc)+btn('+ 新增账号','primary',()=>accEdit(null))+'</div><div id="accBody"></div>';
   let arr=await loadEncrypted(KEY.acc);
-  if(arr===null){ $('#accBody').innerHTML='<div class="empty">无法解密，请确认主密码是否正确 / 加密库是否加载</div>'; bindAccSearch(null); return; }
+  if(arr===null){
+    const cryptoOk = window.CryptoJS || (window.crypto && window.crypto.subtle);
+    if(!cryptoOk){ $('#accBody').innerHTML='<div class="empty">加密库未加载，请联网后重试</div>'; bindAccSearch(null); return; }
+    MasterKey.clear();
+    for(;;){
+      try{
+        const v=await MasterKey.prompt();
+        MasterKey.set(v);
+        arr=await loadEncrypted(KEY.acc);
+        if(arr!==null) break;
+        MasterKey.clear();
+        toast('主密码错误，请重新输入','err');
+      }catch(e){ $('#accBody').innerHTML='<div class="empty">已取消解锁</div>'; bindAccSearch(null); return; }
+    }
+  }
   const q=accFilter.trim().toLowerCase();
   const shown=q? arr.filter(a=>[a.name,a.account,a.deviceName].join(' ').toLowerCase().includes(q)) : arr;
   const bb=$('#accBody');
@@ -1038,7 +1053,21 @@ async function renderUrls(){
     '<div class="grid cols-2" id="urlGrid"></div>';
   const q=urlFilter.trim().toLowerCase();
   let arr=await loadEncrypted(KEY.url);
-  if(arr===null){ $('#urlGrid').innerHTML='<div class="empty">无法解密，请确认主密码</div>'; return; }
+  if(arr===null){
+    const cryptoOk = window.CryptoJS || (window.crypto && window.crypto.subtle);
+    if(!cryptoOk){ $('#urlGrid').innerHTML='<div class="empty">加密库未加载，请联网后重试</div>'; return; }
+    MasterKey.clear();
+    for(;;){
+      try{
+        const v=await MasterKey.prompt();
+        MasterKey.set(v);
+        arr=await loadEncrypted(KEY.url);
+        if(arr!==null) break;
+        MasterKey.clear();
+        toast('主密码错误，请重新输入','err');
+      }catch(e){ $('#urlGrid').innerHTML='<div class="empty">已取消解锁</div>'; return; }
+    }
+  }
   arr=arr.map(normUrl);
   const catSet=new Set(arr.map(u=>u.category||'默认'));
   $('#urlCats').innerHTML='<span class="chip '+(!urlFilter?'active':'')+'" data-c="">全部</span>'+Array.from(catSet).map(c=>'<span class="chip" data-c="'+escapeHtml(c)+'">'+escapeHtml(c)+'</span>').join('');
@@ -1601,6 +1630,5 @@ function init(){
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
 </script>
-
-
-</body></html>
+</body>
+</html>
