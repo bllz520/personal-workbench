@@ -533,6 +533,17 @@ async function saveEncrypted(key, arr){
   const cipher=await Sec.encrypt(JSON.stringify(arr));
   Store.set(key, cipher);
 }
+async function unlockOrNull(key){
+  MasterKey.clear();
+  for(;;){
+    try{ const v=await MasterKey.prompt(); MasterKey.set(v); }
+    catch(e){ return null; }            // 用户取消
+    const a=await loadEncrypted(key);
+    if(a!==null) return a;              // 解密成功
+    MasterKey.clear();
+    toast('主密码错误，请重新输入','err');
+  }
+}
 
 /* ============================ 看板 ============================ */
 const state={ view:'home', viewYear:new Date().getFullYear(), viewMonth:new Date().getMonth() };
@@ -960,18 +971,20 @@ async function renderIPAccounts(){
     '<div class="spacer"></div>'+btn('⬇ 导出','sm',exportAcc)+btn('⬆ 导入','sm',importAcc)+btn('+ 新增账号','primary',()=>accEdit(null))+'</div><div id="accBody"></div>';
   let arr=await loadEncrypted(KEY.acc);
   if(arr===null){
-    const cryptoOk = window.CryptoJS || (window.crypto && window.crypto.subtle);
-    if(!cryptoOk){ $('#accBody').innerHTML='<div class="empty">加密库未加载，请联网后重试</div>'; bindAccSearch(null); return; }
-    MasterKey.clear();
-    for(;;){
-      try{
-        const v=await MasterKey.prompt();
-        MasterKey.set(v);
-        arr=await loadEncrypted(KEY.acc);
-        if(arr!==null) break;
-        MasterKey.clear();
-        toast('主密码错误，请重新输入','err');
-      }catch(e){ $('#accBody').innerHTML='<div class="empty">已取消解锁</div>'; bindAccSearch(null); return; }
+    if(!(window.CryptoJS || (window.crypto && window.crypto.subtle))){ $('#accBody').innerHTML='<div class="empty">加密库未加载，请联网后重试</div>'; bindAccSearch(null); return; }
+    arr=await unlockOrNull(KEY.acc);
+    if(arr===null){ $('#accBody').innerHTML='<div class="empty">已取消解锁</div>'; bindAccSearch(null); return; }
+  } else if(arr.length===0){
+    if(Sync.isConfigured()){ await Sync.pullAll(); arr=await loadEncrypted(KEY.acc); }
+    if(arr===null){ arr=await unlockOrNull(KEY.acc); if(arr===null){ $('#accBody').innerHTML='<div class="empty">已取消解锁</div>'; bindAccSearch(null); return; } }
+    if(arr.length===0){
+      if(!Sync.isConfigured()){
+        $('#accBody').innerHTML='<div class="empty">尚未加载加密数据。<br>请先在下方「☁️ 坚果云同步设置」填写账号并保存，再点「🔄 同步」拉取。<br><button class="btn sm primary" id="gotoSync">去配置同步</button></div>';
+        const b=document.getElementById('gotoSync');
+        if(b) b.onclick=()=>{ const bx=document.getElementById('syncBox'); if(bx){ bx.classList.remove('collapsed'); bx.scrollIntoView({behavior:'smooth',block:'center'}); } const u=document.getElementById('cfgUrl'); if(u) u.focus(); };
+        bindAccSearch(null); return;
+      }
+      $('#accBody').innerHTML='<div class="empty">云端与本地均暂无账号</div>'; bindAccSearch(null); return;
     }
   }
   const q=accFilter.trim().toLowerCase();
@@ -1058,18 +1071,21 @@ async function renderUrls(){
   const q=urlFilter.trim().toLowerCase();
   let arr=await loadEncrypted(KEY.url);
   if(arr===null){
-    const cryptoOk = window.CryptoJS || (window.crypto && window.crypto.subtle);
-    if(!cryptoOk){ $('#urlGrid').innerHTML='<div class="empty">加密库未加载，请联网后重试</div>'; return; }
-    MasterKey.clear();
-    for(;;){
-      try{
-        const v=await MasterKey.prompt();
-        MasterKey.set(v);
-        arr=await loadEncrypted(KEY.url);
-        if(arr!==null) break;
-        MasterKey.clear();
-        toast('主密码错误，请重新输入','err');
-      }catch(e){ $('#urlGrid').innerHTML='<div class="empty">已取消解锁</div>'; return; }
+    if(!(window.CryptoJS || (window.crypto && window.crypto.subtle))){ $('#urlGrid').innerHTML='<div class="empty">加密库未加载，请联网后重试</div>'; return; }
+    arr=await unlockOrNull(KEY.url);
+    if(arr===null){ $('#urlGrid').innerHTML='<div class="empty">已取消解锁</div>'; return; }
+  } else if(arr.length===0){
+    // 本地无数据：已配置 WebDAV 则先从云端拉取，否则引导配置
+    if(Sync.isConfigured()){ await Sync.pullAll(); arr=await loadEncrypted(KEY.url); }
+    if(arr===null){ arr=await unlockOrNull(KEY.url); if(arr===null){ $('#urlGrid').innerHTML='<div class="empty">已取消解锁</div>'; return; } }
+    if(arr.length===0){
+      if(!Sync.isConfigured()){
+        $('#urlGrid').innerHTML='<div class="empty">尚未加载加密数据。<br>请先在下方「☁️ 坚果云同步设置」填写账号并保存，再点「🔄 同步」拉取。<br><button class="btn sm primary" id="gotoSync">去配置同步</button></div>';
+        const b=document.getElementById('gotoSync');
+        if(b) b.onclick=()=>{ const bx=document.getElementById('syncBox'); if(bx){ bx.classList.remove('collapsed'); bx.scrollIntoView({behavior:'smooth',block:'center'}); } const u=document.getElementById('cfgUrl'); if(u) u.focus(); };
+        return;
+      }
+      $('#urlGrid').innerHTML='<div class="empty">云端与本地均暂无网址</div>'; return;
     }
   }
   arr=arr.map(normUrl);
@@ -1561,7 +1577,7 @@ function initSync(){
     const cfg={ serverUrl:$('#cfgUrl').value.trim(), username:$('#cfgUser').value.trim(), password:$('#cfgPass').value, secret:$('#cfgSecret').value.trim() };
     if(!cfg.serverUrl||!cfg.username||!cfg.password){ toast('请填写完整的服务器地址、账号、应用密码','err'); return; }
     localStorage.setItem('webdavConfig', JSON.stringify(cfg));
-    Sync.cfg=cfg; toast('配置已保存','ok'); Sync.testConnection();
+    Sync.cfg=cfg; toast('配置已保存','ok'); Sync.testConnection(); Sync.fullSync();
   };
   if($('#cfgTest')) $('#cfgTest').onclick=()=>Sync.testConnection();
   if($('#cfgPublish')) $('#cfgPublish').onclick=()=>Sync.publishSite();
