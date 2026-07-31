@@ -987,12 +987,12 @@ async function renderIPAccounts(){
       // 区分「云端确实为空」与「拉取失败 / 服务器地址错误」
       let cloudHas=false; try{ cloudHas=await Sync.fileExists(KEY.acc); }catch(e){ cloudHas=false; }
       if(!cloudHas){
-        $('#accBody').innerHTML='<div class="empty">未能从云端找到「账号密码」数据。<br>请检查：① 同步设置里的服务器地址须为 <code style="font-size:12px">https://dav.jianguoyun.com</code>（不要带 /dav 或 /工作台）；② 账号与应用密码正确；③ 已在电脑端同步过本数据。<br><button class="btn sm primary" id="gotoSync">去检查同步设置</button></div>';
+        $('#accBody').innerHTML='<div class="empty">未能从云端找到「账号密码」数据。<br>请检查：① 手机端服务器地址应填 SCF 代理网关 URL；② 账号与应用密码正确；③ 已在电脑端同步过本数据。<br><button class="btn sm primary" id="gotoSync">去检查同步设置</button></div>';
         const b=document.getElementById('gotoSync');
         if(b) b.onclick=()=>{ const bx=document.getElementById('syncBox'); if(bx){ bx.classList.remove('collapsed'); bx.scrollIntoView({behavior:'smooth',block:'center'}); } const u=document.getElementById('cfgUrl'); if(u) u.focus(); };
         bindAccSearch(null); return;
       }
-      $('#accBody').innerHTML='<div class="empty">云端与本地均暂无账号</div>'; bindAccSearch(null); return;
+      $('#accBody').innerHTML='<div class="empty">云端与本地均暂无账号。<br>若电脑端有数据，请在电脑端点「立即同步」重新上传，手机再同步一次即可恢复。</div>'; bindAccSearch(null); return;
     }
   }
   const q=accFilter.trim().toLowerCase();
@@ -1096,12 +1096,12 @@ async function renderUrls(){
       // 区分「云端确实为空」与「拉取失败 / 服务器地址错误」
       let cloudHas=false; try{ cloudHas=await Sync.fileExists(KEY.url); }catch(e){ cloudHas=false; }
       if(!cloudHas){
-        $('#urlGrid').innerHTML='<div class="empty">未能从云端找到「公司网址」数据。<br>请检查：① 同步设置里的服务器地址须为 <code style="font-size:12px">https://dav.jianguoyun.com</code>（不要带 /dav 或 /工作台）；② 账号与应用密码正确；③ 已在电脑端同步过本数据。<br><button class="btn sm primary" id="gotoSync">去检查同步设置</button></div>';
+        $('#urlGrid').innerHTML='<div class="empty">未能从云端找到「公司网址」数据。<br>请检查：① 手机端服务器地址应填 SCF 代理网关 URL；② 账号与应用密码正确；③ 已在电脑端同步过本数据。<br><button class="btn sm primary" id="gotoSync">去检查同步设置</button></div>';
         const b=document.getElementById('gotoSync');
         if(b) b.onclick=()=>{ const bx=document.getElementById('syncBox'); if(bx){ bx.classList.remove('collapsed'); bx.scrollIntoView({behavior:'smooth',block:'center'}); } const u=document.getElementById('cfgUrl'); if(u) u.focus(); };
         return;
       }
-      $('#urlGrid').innerHTML='<div class="empty">云端与本地均暂无网址</div>'; return;
+      $('#urlGrid').innerHTML='<div class="empty">云端与本地均暂无网址。<br>若电脑端有数据，请在电脑端点「立即同步」重新上传，手机再同步一次即可恢复。</div>'; return;
     }
   }
   arr=arr.map(normUrl);
@@ -1529,10 +1529,12 @@ const Sync={
   },
   async pushKey(key){
     if(!this.isConfigured()) return;
+    const data=Store.get(key, null);
+    if(data===null || data===undefined) return; // 本地无数据，不上传覆盖云端
     const meta=getSyncMeta(); const ts=Date.now(); meta[key]=ts; setSyncMeta(meta);
     try{
       SyncStatus.set('syncing');
-      await this.uploadData(key, {updatedAt:ts, data:Store.get(key, null)});
+      await this.uploadData(key, {updatedAt:ts, data});
       SyncStatus.set('success','上次 '+fmtTime(Date.now()));
     }catch(e){
       SyncStatus.set('error', (e&&e.message)||'错误');
@@ -1544,8 +1546,10 @@ const Sync={
     SyncStatus.set('syncing','全量上传');
     try{
       for(const key of getSyncKeys()){
+        const data=Store.get(key, null);
+        if(data===null || data===undefined) continue; // 本地无数据不上传
         const meta=getSyncMeta(); const ts=Date.now(); meta[key]=ts; setSyncMeta(meta);
-        await this.uploadData(key, {updatedAt:ts, data:Store.get(key, null)});
+        await this.uploadData(key, {updatedAt:ts, data});
       }
       SyncStatus.set('success','上次 '+fmtTime(Date.now())); toast('已同步到云端','ok');
     }catch(e){ SyncStatus.set('error', (e&&e.message)||'错误'); toast('同步失败：'+((e&&e.message)||''),'err'); }
@@ -1560,6 +1564,17 @@ const Sync={
         if(!cloud) continue;
         const meta=getSyncMeta(); const localTs=meta[key]||0;
         if(cloud.updatedAt>localTs){
+          if(cloud.data===null || cloud.data===undefined){
+            // 云端无有效数据，不覆盖本地；若本地有数据则反向修复云端
+            const localData=Store.get(key, null);
+            if(localData!==null && localData!==undefined){
+              const ts=Date.now();
+              await this.uploadData(key, {updatedAt:ts, data:localData});
+              const m=getSyncMeta(); m[key]=ts; setSyncMeta(m);
+              changed=true;
+            }
+            continue;
+          }
           Store.set(key, cloud.data);
           const m=getSyncMeta(); m[key]=cloud.updatedAt; setSyncMeta(m);
           changed=true;
