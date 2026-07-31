@@ -984,6 +984,14 @@ async function renderIPAccounts(){
         if(b) b.onclick=()=>{ const bx=document.getElementById('syncBox'); if(bx){ bx.classList.remove('collapsed'); bx.scrollIntoView({behavior:'smooth',block:'center'}); } const u=document.getElementById('cfgUrl'); if(u) u.focus(); };
         bindAccSearch(null); return;
       }
+      // 区分「云端确实为空」与「拉取失败 / 服务器地址错误」
+      let cloudHas=false; try{ cloudHas=await Sync.fileExists(KEY.acc); }catch(e){ cloudHas=false; }
+      if(!cloudHas){
+        $('#accBody').innerHTML='<div class="empty">未能从云端找到「账号密码」数据。<br>请检查：① 同步设置里的服务器地址须为 <code style="font-size:12px">https://dav.jianguoyun.com</code>（不要带 /dav 或 /工作台）；② 账号与应用密码正确；③ 已在电脑端同步过本数据。<br><button class="btn sm primary" id="gotoSync">去检查同步设置</button></div>';
+        const b=document.getElementById('gotoSync');
+        if(b) b.onclick=()=>{ const bx=document.getElementById('syncBox'); if(bx){ bx.classList.remove('collapsed'); bx.scrollIntoView({behavior:'smooth',block:'center'}); } const u=document.getElementById('cfgUrl'); if(u) u.focus(); };
+        bindAccSearch(null); return;
+      }
       $('#accBody').innerHTML='<div class="empty">云端与本地均暂无账号</div>'; bindAccSearch(null); return;
     }
   }
@@ -1081,6 +1089,14 @@ async function renderUrls(){
     if(arr.length===0){
       if(!Sync.isConfigured()){
         $('#urlGrid').innerHTML='<div class="empty">尚未加载加密数据。<br>请先在下方「☁️ 坚果云同步设置」填写账号并保存，再点「🔄 同步」拉取。<br><button class="btn sm primary" id="gotoSync">去配置同步</button></div>';
+        const b=document.getElementById('gotoSync');
+        if(b) b.onclick=()=>{ const bx=document.getElementById('syncBox'); if(bx){ bx.classList.remove('collapsed'); bx.scrollIntoView({behavior:'smooth',block:'center'}); } const u=document.getElementById('cfgUrl'); if(u) u.focus(); };
+        return;
+      }
+      // 区分「云端确实为空」与「拉取失败 / 服务器地址错误」
+      let cloudHas=false; try{ cloudHas=await Sync.fileExists(KEY.url); }catch(e){ cloudHas=false; }
+      if(!cloudHas){
+        $('#urlGrid').innerHTML='<div class="empty">未能从云端找到「公司网址」数据。<br>请检查：① 同步设置里的服务器地址须为 <code style="font-size:12px">https://dav.jianguoyun.com</code>（不要带 /dav 或 /工作台）；② 账号与应用密码正确；③ 已在电脑端同步过本数据。<br><button class="btn sm primary" id="gotoSync">去检查同步设置</button></div>';
         const b=document.getElementById('gotoSync');
         if(b) b.onclick=()=>{ const bx=document.getElementById('syncBox'); if(bx){ bx.classList.remove('collapsed'); bx.scrollIntoView({behavior:'smooth',block:'center'}); } const u=document.getElementById('cfgUrl'); if(u) u.focus(); };
         return;
@@ -1460,8 +1476,9 @@ const Sync={
   async testConnection(){
     SyncStatus.set('syncing','测试中');
     try{
-      const res=await this.request('HEAD', this.folderPath()+'/__probe__.json');
+      const res=await this.request('HEAD', this.folderPath());
       if(res.status===401){ SyncStatus.set('error','账号或应用密码错误'); return false; }
+      if(res.status===404){ SyncStatus.set('error','目录不存在（服务器地址应填 https://dav.jianguoyun.com，代码会自动拼 /dav/工作台）'); return false; }
       SyncStatus.set('success','上次 '+fmtTime(Date.now())); return true;
     }catch(e){ SyncStatus.set('error','无法连接（'+(e&&e.message||'')+'）'); return false; }
   },
