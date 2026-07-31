@@ -1458,6 +1458,24 @@ const SyncStatus={
 
 const Sync={
   cfg:null, timers:{}, pending:[], restoring:false,
+  // SCF 函数 URL 会把响应体以 isBase64Encoded 返回，浏览器 fetch 不会自动解码。
+  // 这里做一个兼容：如果文本像 base64 且解码后是 JSON/XML，就返回解码结果。
+  _tryScfDecode(raw){
+    if(!raw || raw.length%4!==0 || raw.length<4) return raw;
+    if(!/^[A-Za-z0-9+/]+={0,2}$/.test(raw)) return raw;
+    try{
+      const bin=atob(raw);
+      const bytes=new Uint8Array(bin.length);
+      for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+      const decoded=new TextDecoder('utf-8').decode(bytes);
+      if((decoded.charAt(0)==='{' && decoded.charAt(decoded.length-1)==='}') ||
+         decoded.indexOf('<?xml')===0 || decoded.indexOf('<d:multistatus')===0 || decoded.indexOf('<D:multistatus')===0){
+        return decoded;
+      }
+    }catch(e){}
+    return raw;
+  },
+  _isSCFProxy(){ const c=this.cfg||this.loadCfg(); return !!(c && c.serverUrl && /tencentscf\.com|scf-proxy|functions\.yun\./i.test(c.serverUrl)); },
   loadCfg(){ try{ this.cfg=JSON.parse(localStorage.getItem('webdavConfig')||'null'); }catch(e){ this.cfg=null; } return this.cfg; },
   isConfigured(){ const c=this.cfg||this.loadCfg(); return !!(c && c.serverUrl && c.username && c.password); },
   authHeader(){ const c=this.cfg; return 'Basic '+btoa(unescape(encodeURIComponent(c.username+':'+c.password))); },
@@ -1508,7 +1526,9 @@ const Sync={
     const res=await this.request('GET', this.folderPath()+'/'+key+'.json');
     if(res.status===404) return null;
     if(res.status>=400) throw new Error('下载失败 HTTP '+res.status);
-    try{ return await res.json(); }catch(e){ throw new Error('解析失败'); }
+    let txt=await res.text();
+    txt=this._tryScfDecode(txt);
+    try{ return JSON.parse(txt); }catch(e){ throw new Error('解析失败'); }
   },
   async fileExists(key){
     const res=await this.request('HEAD', this.folderPath()+'/'+key+'.json');
@@ -1518,8 +1538,9 @@ const Sync={
     try{
       const res=await this.request('PROPFIND', this.folderPath(), '<?xml version="1.0"?><D:propfind xmlns:D="DAV:"><D:prop><D:resourcetype/><D:getetag/></D:prop></D:propfind>', true);
       if(res.status!==207) return [];
-      const txt=await res.text();
-      return [...txt.matchAll(/<href>([^<]+)<\/href>/g)].map(m=>decodeURIComponent(m[1])).filter(h=>/\.json$/.test(h));
+      let txt=await res.text();
+      txt=this._tryScfDecode(txt);
+      return [...txt.matchAll(/<[a-zA-Z]?:href>([^<]+)<\/[a-zA-Z]?:href>/g)].map(m=>decodeURIComponent(m[1])).filter(h=>/\.json$/.test(h));
     }catch(e){ return []; }
   },
   scheduleUpload(key){
