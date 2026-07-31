@@ -1478,7 +1478,7 @@ const Sync={
     try{
       const res=await this.request('HEAD', this.folderPath());
       if(res.status===401){ SyncStatus.set('error','账号或应用密码错误'); return false; }
-      if(res.status===404){ SyncStatus.set('error','目录不存在（服务器地址应填 https://dav.jianguoyun.com，代码会自动拼 /dav/工作台）'); return false; }
+      if(res.status===404){ SyncStatus.set('error','目录不存在。手机/PWA 请填 SCF 代理网关 URL；桌面可填 https://dav.jianguoyun.com'); return false; }
       SyncStatus.set('success','上次 '+fmtTime(Date.now())); return true;
     }catch(e){ SyncStatus.set('error','无法连接（'+(e&&e.message||'')+'）'); return false; }
   },
