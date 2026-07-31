@@ -275,11 +275,45 @@ td .ops{display:flex; gap:6px}
   .backdrop{position:fixed; inset:0; background:rgba(0,0,0,.3); z-index:39}
   .cols-2,.cols-3{grid-template-columns:1fr}
 }
+/* ============ 移动端底部 Tab 栏 ============ */
+.tabbar{display:none}
+@media(max-width:768px){
+  body,.app{min-height:100dvh}
+  .topbar{gap:8px; padding:8px 12px}
+  .topbar .meta{display:none}
+  .topbar #syncPill{display:none}
+  .topbar #themeSel{display:none}
+  .topbar .spacer{display:none}
+  .view{padding:12px 14px 88px}
+  .dashbar{padding:14px 14px 4px}
+  .item{padding:14px; min-height:54px; align-items:center}
+  .item .title{font-size:15px}
+  .item .ops .btn{padding:7px 12px; min-height:38px}
+  .btn{min-height:40px}
+  .card{padding:14px}
+  .cal{gap:4px}
+  .cal .day{min-height:62px; padding:6px}
+  .cal .day .mini{display:none}
+  .cal .day .dnum{font-size:12px}
+  .cal .dow{font-size:11px}
+  th,td{padding:9px 10px}
+  .overlay{padding:0; align-items:flex-end}
+  .modal{width:100%; max-height:92vh; border-radius:16px 16px 0 0; animation:slideup .22s ease}
+  .modal.wide,.modal.full{width:100%}
+  @keyframes slideup{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  .tabbar{display:flex; position:fixed; left:0; right:0; bottom:0; z-index:50;
+    background:var(--panel); border-top:1px solid var(--line); justify-content:space-around; align-items:center;
+    padding:6px 2px calc(6px + env(safe-area-inset-bottom)); box-shadow:0 -2px 14px rgba(0,0,0,.07)}
+  .tabbar .tab{background:none; border:none; flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;
+    font-size:11px; color:var(--ink-2); padding:4px 2px; cursor:pointer}
+  .tabbar .tab .ic{font-size:20px; line-height:1}
+  .tabbar .tab.active{color:var(--brand)}
+  .tabbar .tab.active .ic{transform:scale(1.12); transition:.15s}
+}
 @media(max-width:560px){
   .dashbar{grid-template-columns:1fr 1fr; gap:10px}
   .field-row{grid-template-columns:1fr}
-  .view{padding:12px 12px 60px}
-  .cal .day{min-height:70px}
+  .cal .day{min-height:56px}
 }
 </style>
 </head>
@@ -332,6 +366,14 @@ td .ops{display:flex; gap:6px}
     <div class="view" id="view"></div>
   </div>
 </div>
+
+<nav class="tabbar" id="tabbar">
+  <button class="tab" data-id="home"><span class="ic">🏠</span><span>首页</span></button>
+  <button class="tab" data-id="todo"><span class="ic">📋</span><span>待办</span></button>
+  <button class="tab" data-id="dash"><span class="ic">📊</span><span>看板</span></button>
+  <button class="tab" data-id="know"><span class="ic">📁</span><span>知识</span></button>
+  <button class="tab" data-id="__more"><span class="ic">☰</span><span>更多</span></button>
+</nav>
 
 <div id="modalRoot"></div>
 <div class="toast-wrap" id="toastWrap"></div>
@@ -617,7 +659,8 @@ function buildNav(){
   nav.appendChild(statNav);
 }
 function setActiveNav(id){ $$('.nav-item').forEach(e=>e.classList.toggle('active', e.dataset.id===id)); }
-function go(id){ state.view=id; setActiveNav(id); $('#viewTitle').textContent=TITLES[id]||''; $('#sidebar').classList.remove('open'); const bd=$('.backdrop'); if(bd) bd.remove(); render(); }
+function setActiveTab(id){ $$('.tabbar .tab').forEach(t=>{ const tid=t.dataset.id; t.classList.toggle('active', tid===id || (tid==='__more' && !['home','todo','dash','know'].includes(id))); }); }
+function go(id){ state.view=id; setActiveNav(id); setActiveTab(id); $('#viewTitle').textContent=TITLES[id]||''; $('#sidebar').classList.remove('open'); const bd=$('.backdrop'); if(bd) bd.remove(); render(); }
 
 /* ============================ 渲染调度 ============================ */
 function render(){
@@ -1698,6 +1741,16 @@ function init(){
     ]});
   }
   tickClock(); setInterval(tickClock, 30000);
+  // 移动端底部 Tab 栏
+  $$('#tabbar .tab').forEach(btn=>{
+    btn.onclick=()=>{
+      const id=btn.dataset.id;
+      if(id==='__more'){
+        const sb=$('#sidebar'); sb.classList.add('open');
+        let bd=$('.backdrop'); if(!bd){ bd=document.createElement('div'); bd.className='backdrop'; bd.onclick=()=>{ sb.classList.remove('open'); bd.remove(); }; document.body.appendChild(bd); }
+      } else go(id);
+    };
+  });
   go('home');
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
