@@ -1,18 +1,40 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
-<head>
+<html lang="zh-CN" class=""><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>个人工作台</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
 <style>
-:root{
+:root,
+.theme-teal{
+  /* 默认风格 D：柔和蓝绿圆角 */
+  --bg:#eef6f5; --panel:#ffffff; --panel-2:#f3f8f8; --ink:#143a38; --ink-2:#5d7876;
+  --line:#d9e9e7; --line-2:#c2d8d5; --brand:#0d9488; --brand-d:#0b7d72; --brand-soft:#cdeae7;
+  --green:#16a34a; --green-soft:#dcfce7; --amber:#d97706; --amber-soft:#fef3c7;
+  --red:#dc2626; --red-soft:#fee2e2; --purple:#7c3aed; --purple-soft:#ede9fe;
+  --radius:16px; --shadow:0 1px 3px rgba(13,148,136,.06),0 6px 20px rgba(13,148,136,.07);
+  --shadow-lg:0 14px 44px rgba(15,40,38,.18); --sidebar-w:240px;
+  --topbar-bg:rgba(255,255,255,.92); --input-bg:#f4faf9;
+}
+/* 米灰（原风格） */
+.theme-mist{
   --bg:#f4f6fb; --panel:#ffffff; --panel-2:#f8fafc; --ink:#1f2937; --ink-2:#6b7280;
   --line:#e5e7eb; --line-2:#d1d5db; --brand:#2563eb; --brand-d:#1d4ed8; --brand-soft:#dbeafe;
   --green:#16a34a; --green-soft:#dcfce7; --amber:#d97706; --amber-soft:#fef3c7;
   --red:#dc2626; --red-soft:#fee2e2; --purple:#7c3aed; --purple-soft:#ede9fe;
   --radius:12px; --shadow:0 1px 3px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.04);
   --shadow-lg:0 10px 40px rgba(0,0,0,.18); --sidebar-w:240px;
+  --topbar-bg:rgba(255,255,255,.92); --input-bg:#f8fafc;
+}
+/* 暗色护眼 */
+.theme-dark{
+  --bg:#0f172a; --panel:#1e293b; --panel-2:#243049; --ink:#e6edf3; --ink-2:#94a3b8;
+  --line:#334155; --line-2:#475569; --brand:#2dd4bf; --brand-d:#14b8a6; --brand-soft:#134e4a;
+  --green:#4ade80; --green-soft:#14321f; --amber:#fbbf24; --amber-soft:#3a2f12;
+  --red:#f87171; --red-soft:#3a1d1d; --purple:#c084fc; --purple-soft:#2e1a47;
+  --radius:16px; --shadow:0 1px 3px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.35);
+  --shadow-lg:0 14px 44px rgba(0,0,0,.55); --sidebar-w:240px;
+  --topbar-bg:rgba(15,23,42,.9); --input-bg:#0f172a;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
@@ -44,7 +66,7 @@ a{color:var(--brand); text-decoration:none}
 .sidebar .foot{padding:10px 14px; font-size:11px; color:var(--ink-2); border-top:1px solid var(--line)}
 
 .main{margin-left:var(--sidebar-w); flex:1; display:flex; flex-direction:column; min-width:0}
-.topbar{position:sticky; top:0; z-index:30; background:rgba(255,255,255,.92);
+.topbar{position:sticky; top:0; z-index:30; background:var(--topbar-bg);
   backdrop-filter:blur(6px); border-bottom:1px solid var(--line); padding:10px 18px;
   display:flex; align-items:center; gap:14px}
 .hamburger{display:none; background:none; border:1px solid var(--line); border-radius:8px; padding:6px 9px; font-size:16px}
@@ -141,7 +163,7 @@ td .ops{display:flex; gap:6px}
 .field{margin-bottom:13px}
 .field label{display:block; font-size:12px; color:var(--ink-2); margin-bottom:5px; font-weight:600}
 .field input,.field select,.field textarea{width:100%; padding:9px 11px; border:1px solid var(--line-2);
-  border-radius:9px; background:#fff; color:var(--ink)}
+  border-radius:9px; background:var(--input-bg); color:var(--ink)}
 .field textarea{resize:vertical; min-height:80px}
 .field .hint{font-size:11px; color:var(--ink-2); margin-top:4px}
 .field-row{display:grid; grid-template-columns:1fr 1fr; gap:12px}
@@ -190,7 +212,25 @@ td .ops{display:flex; gap:6px}
 .kb-card{border:1px solid var(--line); border-radius:10px; padding:12px 14px; background:var(--panel)}
 .kb-card h4{margin:0 0 4px; font-size:15px}
 .kb-card .content{color:var(--ink-2); font-size:13px; max-height:60px; overflow:hidden; white-space:pre-wrap}
-.search{width:100%; max-width:320px; padding:8px 12px; border:1px solid var(--line-2); border-radius:9px}
+.search{width:100%; max-width:320px; padding:8px 12px; border:1px solid var(--line-2); border-radius:9px; background:var(--input-bg); color:var(--ink)}
+
+/* 账号多组 / 主题切换 / 密码强度 */
+.acc-row{display:flex; gap:6px; align-items:center; margin-bottom:6px}
+.acc-row input{flex:1}
+.cat-chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px}
+.cat-chips .chip{cursor:pointer; transition:.15s}
+.cat-chips .chip:hover{background:var(--brand-soft); border-color:var(--brand); color:var(--brand-d)}
+.acc-line{padding:6px 0; border-top:1px dashed var(--line); margin-top:6px}
+.acc-line:first-of-type{border-top:none; margin-top:2px}
+.theme-sel{padding:6px 10px; border:1px solid var(--line-2); border-radius:8px; background:var(--panel); color:var(--ink); font-size:12px; cursor:pointer}
+.pw-strength{margin-top:6px; display:flex; align-items:center; gap:8px}
+.pw-strength .bar{flex:1; height:6px; border-radius:999px; background:var(--line); overflow:hidden}
+.pw-strength .bar > i{display:block; height:100%; background:var(--line-2); transition:.2s}
+.pw-strength.weak .bar > i{background:var(--red); width:33%}
+.pw-strength.mid .bar > i{background:var(--amber); width:66%}
+.pw-strength.strong .bar > i{background:var(--green); width:100%}
+.pw-strength .txt{font-size:12px; color:var(--ink-2); min-width:28px}
+.theme-dark .toast{background:#334155; color:#fff}
 
 /* misc */
 .hide{display:none!important}
@@ -242,8 +282,8 @@ td .ops{display:flex; gap:6px}
 <div class="app">
   <aside class="sidebar" id="sidebar">
     <div class="brand"><span class="logo">🔧</span> 个人工作台</div>
-    <nav class="nav" id="nav"></nav>
-    <div class="sync-box collapsed" id="syncBox">
+    <nav class="nav" id="nav"><div class="nav-item active" data-id="home"><span class="ico">🏠</span><span>个人工作台</span></div><div class="nav-item" data-id="dash"><span class="ico">📊</span><span>数据看板</span></div><div class="nav-item" data-id="todo"><span class="ico">📋</span><span>今日待办</span></div><div class="nav-item" data-id="month"><span class="ico">📅</span><span>月度计划</span></div><div class="nav-item" data-id="year"><span class="ico">📚</span><span>年度回顾</span></div><div class="nav-item" data-id="info"><span class="ico">🖥️</span><span>信息化管理</span><span class="caret">▾</span></div><div class="nav-children"><div class="nav-item" data-id="ip"><span class="ico">🌐</span><span>公司网络IP</span></div><div class="nav-item" data-id="urls"><span class="ico">🌍</span><span>公司网址</span></div><div class="nav-item" data-id="devm"><span class="ico">🔧</span><span>设备运维记录</span></div><div class="nav-item" data-id="netm"><span class="ico">🌐</span><span>网络维护记录</span></div></div><div class="nav-item" data-id="know"><span class="ico">📁</span><span>知识库</span></div><div class="nav-item" data-id="week"><span class="ico">📄</span><span>周报导出</span></div><div class="nav-item"><span class="ico">🔄</span><span>同步数据</span></div><div class="nav-item"><span class="ico">☁️</span><span id="navStatText">同步中… · 发布中</span></div></nav>
+    <div class="sync-box" id="syncBox">
       <div class="sync-head" id="syncHead"><span>☁️ 坚果云同步设置</span><span class="caret">▾</span></div>
       <div class="sync-body" id="syncBody">
         <div class="field"><label>服务器地址（代理网关 URL）</label><input id="cfgUrl" placeholder="https://xxx.apigw.tencentcs.com/release/wbproxy"></div>
@@ -258,7 +298,10 @@ td .ops{display:flex; gap:6px}
           <button class="btn sm" id="cfgTest">🔗 测试</button>
           <button class="btn sm" id="cfgSync">🔄 立即同步</button>
         </div>
-        <div class="sync-status" id="syncStatus">未配置</div>
+        <div class="row" style="margin:2px 0 4px">
+          <button class="btn sm" id="cfgPublish" title="把当前页面壳发布到坚果云，SCF 的 /app/ 路由会直接托管，刷新页面地址即最新版">📤 发布到云端（SCF 托管）</button>
+        </div>
+        <div class="sync-status" id="syncStatus">同步中…：发布中</div>
       </div>
     </div>
     <div class="foot">数据本地存储 · localStorage<br>加密：AES-256</div>
@@ -270,12 +313,18 @@ td .ops{display:flex; gap:6px}
       <h1 id="viewTitle">个人工作台</h1>
       <div class="spacer"></div>
       <button class="btn sm" id="syncBtn" title="立即双向同步">🔄 同步</button>
-      <span class="sync-pill off" id="syncPill"><span class="dot"></span><span id="syncPillText">未配置</span></span>
-      <div class="meta" id="clock"></div>
+      <span class="sync-pill syncing" id="syncPill"><span class="dot"></span><span id="syncPillText">同步中… · 发布中</span></span>
+      <select id="themeSel" class="theme-sel" title="切换界面风格">
+        <option value="teal">🟢 柔和蓝绿</option>
+        <option value="mist">⚪ 米灰</option>
+        <option value="dark">🌙 暗色</option>
+      </select>
+      <button class="btn sm" id="logoutBtn" title="退出 / 锁屏 / 清除本机数据">🔒 退出</button>
+      <div class="meta" id="clock">2026-07-31 18:16</div>
     </div>
 
-    <div class="dashbar" id="dashbar"></div>
-    <div class="view" id="view"></div>
+    <div class="dashbar" id="dashbar"><div class="metric c1"><div class="label">今日待办数</div><div class="value">1</div><div class="sub">共 1 项 · 完成 1</div></div><div class="metric c2"><div class="label">今日完成数</div><div class="value">1</div><div class="sub">完成率 100%</div></div><div class="metric c3"><div class="label">月度计划总数</div><div class="value">0</div><div class="sub">2026年7月</div></div><div class="metric c4"><div class="label">月度完成率</div><div class="value">0%</div><div class="sub">已完成 0 / 0</div></div></div>
+    <div class="view" id="view"><div class="view-head"><h2>👋 你好，今天也要高效推进</h2></div><div class="grid cols-3"><div class="card" style="cursor: pointer;"><div class="row" style="justify-content:space-between"><b>📋 今日待办</b></div><div style="font-size:28px;font-weight:800;margin:8px 0 2px">1 项</div><div class="muted" style="font-size:12px">未完 0 项</div></div><div class="card" style="cursor: pointer;"><div class="row" style="justify-content:space-between"><b>📅 本月计划</b></div><div style="font-size:28px;font-weight:800;margin:8px 0 2px">0 项</div><div class="muted" style="font-size:12px">完成率 0%</div></div></div><div class="card" style="margin-top: 14px;"><h3 style="margin:0 0 10px">🚀 快捷入口</h3><div class="row"><button class="btn primary" data-cb="ms8sespki4dofw">📋 今日待办</button><button class="btn " data-cb="ms8sespk7si9ov">📅 月度计划</button><button class="btn " data-cb="ms8sespk2y345z">📁 知识库</button><button class="btn " data-cb="ms8sespkdhtink">📄 生成周报</button><button class="btn " data-cb="ms8sespkt7bna2">🖥️ 信息化管理</button></div></div></div>
   </div>
 </div>
 
@@ -307,7 +356,7 @@ function fallbackCopy(t){ const ta=document.createElement('textarea'); ta.value=
 
 /* ============================ 存储层 ============================ */
 const KEY={
-  todo:'todayTodos', focus:'tasks', month:'monthlyPlan', year:'yearlyArchive',
+  todo:'todayTodos', month:'monthlyPlan', year:'yearlyArchive',
   ip:'ipDevices', acc:'encryptedAccounts', url:'encryptedUrls',
   dev:'deviceMaintenance', net:'networkMaintenance', know:'knowledge'
 };
@@ -377,8 +426,9 @@ const MasterKey={
       let val='';
       const body=document.createElement('div');
       body.innerHTML=
-        '<div class="field"><label>主密码（用于加密账号/网址，至少 6 位）</label>'+
-        '<input type="password" id="mk" placeholder="请输入主密码"></div>'+
+        '<div class="field"><label>主密码（用于加密账号/网址，至少 8 位，含大小写+数字+符号更安全）</label>'+
+        '<input type="password" id="mk" placeholder="请输入主密码">'+
+        '<div class="pw-strength" id="mkStrength"><span class="bar"><i></i></span><span class="txt"></span></div></div>'+
         '<div class="field"><label>确认主密码</label><input type="password" id="mk2" placeholder="再次输入"></div>'+
         '<div class="warn">主密码仅保存在本次会话（sessionStorage），关闭页面后需重新输入；<b>系统不存储明文且无法找回，请牢记。</b></div>';
       const m=openModal({
@@ -394,19 +444,41 @@ const MasterKey={
           }}
         ]
       });
+      const _mk=body.querySelector('#mk'), _st=body.querySelector('#mkStrength');
+      if(_mk&&_st){ const _upd=()=>{ const r=evaluatePwd(_mk.value); _st.className='pw-strength '+(r.cls||''); _st.querySelector('.txt').textContent=r.label; }; _mk.addEventListener('input',_upd); _upd(); }
     });
   },
   prompt(){
     return new Promise((resolve,reject)=>{
       const body=document.createElement('div');
-      body.innerHTML='<div class="field"><label>主密码</label><input type="password" id="mk" placeholder="请输入主密码解锁"></div>';
+      body.innerHTML='<div class="field"><label>主密码</label><input type="password" id="mk" placeholder="请输入主密码解锁">'+
+        '<div class="pw-strength" id="mkStrength"><span class="bar"><i></i></span><span class="txt"></span></div></div>';
       openModal({ title:'解锁加密数据', body, actions:[
         {label:'取消', onClick:c=>{ c(); reject(new Error('cancelled')); }},
         {label:'解锁', primary:true, onClick:c=>{ const v=$('#mk').value; if(!v){toast('请输入密码','err');return;} MasterKey.set(v); c(); resolve(v); }}
       ]});
+      const _mk=body.querySelector('#mk'), _st=body.querySelector('#mkStrength');
+      if(_mk&&_st){ const _upd=()=>{ const r=evaluatePwd(_mk.value); _st.className='pw-strength '+(r.cls||''); _st.querySelector('.txt').textContent=r.label; }; _mk.addEventListener('input',_upd); _upd(); }
     });
   }
 };
+/* 主密码强度评估：返回 {cls:'weak'|'mid'|'strong', label} */
+function evaluatePwd(pw){
+  if(!pw) return {cls:'', label:''};
+  let s=0;
+  if(pw.length>=8) s++;
+  if(pw.length>=12) s++;
+  if(/[a-z]/.test(pw) && /[A-Z]/.test(pw)) s++;
+  if(/\d/.test(pw)) s++;
+  if(/[^A-Za-z0-9]/.test(pw)) s++;
+  let label, cls;
+  if(pw.length<6){ label='太短'; cls='weak'; }
+  else if(s<=2){ label='弱'; cls='weak'; }
+  else if(s===3){ label='中'; cls='mid'; }
+  else if(s===4){ label='强'; cls='strong'; }
+  else { label='极强'; cls='strong'; }
+  return {cls, label};
+}
 const Sec={
   async encrypt(plain){
     const key=MasterKey.get();
@@ -485,7 +557,6 @@ const NAV=[
   {id:'home', ico:'🏠', label:'个人工作台'},
   {id:'dash', ico:'📊', label:'数据看板'},
   {id:'todo', ico:'📋', label:'今日待办'},
-  {id:'focus', ico:'🎯', label:'今日聚焦'},
   {id:'month', ico:'📅', label:'月度计划'},
   {id:'year', ico:'📚', label:'年度回顾'},
   {id:'info', ico:'🖥️', label:'信息化管理', group:true, children:[
@@ -497,7 +568,7 @@ const NAV=[
   {id:'know', ico:'📁', label:'知识库'},
   {id:'week', ico:'📄', label:'周报导出'}
 ];
-const TITLES={home:'个人工作台',dash:'数据看板',todo:'今日待办',focus:'今日聚焦',month:'月度计划',year:'年度回顾',ip:'公司网络IP',urls:'公司网址',devm:'设备运维记录',netm:'网络维护记录',know:'知识库',week:'周报导出'};
+const TITLES={home:'个人工作台',dash:'数据看板',todo:'今日待办',month:'月度计划',year:'年度回顾',ip:'公司网络IP',urls:'公司网址',devm:'设备运维记录',netm:'网络维护记录',know:'知识库',week:'周报导出'};
 function buildNav(){
   const nav=$('#nav'); nav.innerHTML='';
   NAV.forEach(n=>{
@@ -536,7 +607,7 @@ function go(id){ state.view=id; setActiveNav(id); $('#viewTitle').textContent=TI
 function render(){
   refreshDashboard();
   const v=state.view;
-  const map={home:renderHome,dash:renderDash,todo:renderTodo,focus:renderFocus,month:renderMonth,year:renderYear,
+  const map={home:renderHome,dash:renderDash,todo:renderTodo,month:renderMonth,year:renderYear,
     ip:renderIP,urls:renderUrls,devm:renderDevm,netm:renderNetm,know:renderKnow,week:renderWeek};
   (map[v]||renderHome)();
 }
@@ -544,19 +615,17 @@ function render(){
 /* ============== 个人工作台首页 ============== */
 function renderHome(){
   const view=$('#view');
-  const todos=Store.get(KEY.todo,[])||[]; const focus=Store.get(KEY.focus,[])||[];
-  const items=monthItems(state.viewYear, state.viewMonth);
+  const todos=Store.get(KEY.todo,[])||[];const items=monthItems(state.viewYear, state.viewMonth);
   const done=items.filter(isComplete).length;
   view.innerHTML='<div class="view-head"><h2>👋 你好，今天也要高效推进</h2></div>';
   const grid=document.createElement('div'); grid.className='grid cols-3';
   grid.appendChild(cardClick('📋 今日待办', todos.length+' 项', '未完 '+todos.filter(t=>!t.done).length+' 项', ()=>go('todo')));
-  grid.appendChild(cardClick('🎯 今日聚焦', focus.length+' 件', '已完成 '+focus.filter(t=>t.done).length+' 件', ()=>go('focus')));
   grid.appendChild(cardClick('📅 本月计划', items.length+' 项', '完成率 '+(items.length?Math.round(done/items.length*100):0)+'%', ()=>go('month')));
   view.appendChild(grid);
   const qc=document.createElement('div'); qc.className='card'; qc.style.marginTop='14px';
   qc.innerHTML='<h3 style="margin:0 0 10px">🚀 快捷入口</h3>';
   const row=document.createElement('div'); row.className='row';
-  row.innerHTML=[['📋 今日待办','primary','todo'],['🎯 今日聚焦','','focus'],['📅 月度计划','','month'],['📁 知识库','','know'],['📄 生成周报','','week'],['🖥️ 信息化管理','','ip']]
+  row.innerHTML=[['📋 今日待办','primary','todo'],['📅 月度计划','','month'],['📁 知识库','','know'],['📄 生成周报','','week'],['🖥️ 信息化管理','','ip']]
     .map(([l,c,v])=>btn(l,c,()=>go(v))).join('');
   qc.appendChild(row); view.appendChild(qc);
 }
@@ -573,8 +642,7 @@ document.addEventListener('click', function(e){ const t=e.target.closest('[data-
 /* ============== 数据看板 ============== */
 function renderDash(){
   const view=$('#view');
-  const todos=Store.get(KEY.todo,[])||[]; const focus=Store.get(KEY.focus,[])||[];
-  const items=monthItems(state.viewYear, state.viewMonth);
+  const todos=Store.get(KEY.todo,[])||[];const items=monthItems(state.viewYear, state.viewMonth);
   const mDone=items.filter(isComplete).length;
   const byCat={}; items.forEach(it=>{ const c=it.category||'未分类'; byCat[c]=(byCat[c]||0)+1; });
   const catHtml=Object.keys(byCat).map(c=>'<span class="tag cat">'+escapeHtml(c)+' '+byCat[c]+'</span>').join(' ') || '<span class="muted">暂无</span>';
@@ -583,7 +651,6 @@ function renderDash(){
     '<div class="grid cols-2">'+
       statBox('今日待办完成率', (todos.length?Math.round(todos.filter(t=>t.done).length/todos.length*100):0)+'%', todos.filter(t=>t.done).length+'/'+todos.length)+
       statBox('本月计划完成率', (items.length?Math.round(mDone/items.length*100):0)+'%', mDone+'/'+items.length)+
-      statBox('今日聚焦完成', focus.filter(t=>t.done).length+' 件', '共 '+focus.length+' 件')+
       statBox('年度归档', (Store.get(KEY.year,[])||[]).length+' 条', '累计归档')+
     '</div>'+
     '<div class="card" style="margin-top:14px"><h3 style="margin:0 0 8px">本月计划分类分布</h3>'+catHtml+'</div>';
@@ -658,38 +725,7 @@ function syncLinkDone(src){
   Store.set(KEY.month, plan);
 }
 
-/* ============== 今日聚焦 ============== */
-function renderFocus(){
-  const view=$('#view'); const list=Store.get(KEY.focus,[])||[];
-  view.innerHTML=
-    '<div class="view-head"><h2>🎯 今日聚焦</h2><span class="muted">精选 '+(list.length>5?'(已达 5 件上限，建议先完成)':'3-5')+' 件最重要的事</span><div class="spacer"></div>'+btn('+ 添加','primary',()=>focusEdit(null))+'</div>'+
-    '<div class="list" id="focusList"></div>';
-  const box=$('#focusList');
-  if(!list.length){ box.innerHTML='<div class="empty">还没有聚焦事项，添加今天最重要的 3-5 件事</div>'; return; }
-  list.forEach(it=>box.appendChild(focusRow(it)));
-}
-function focusRow(it){
-  const row=document.createElement('div'); row.className='item';
-  row.innerHTML='<input type="checkbox" class="chk" '+(it.done?'checked':'')+'>'+
-    '<div class="body"><div class="title '+(it.done?'done':'')+'">'+escapeHtml(it.text)+'</div><div class="meta"><span>'+fmtTime(it.createdAt)+'</span></div></div>'+
-    '<div class="ops">'+opBtn('编辑','sm',()=>focusEdit(it))+opBtn('删','sm danger',()=>delFocus(it))+'</div>';
-  row.querySelector('.chk').onchange=e=>{ it.done=e.target.checked; Store.set(KEY.focus, Store.get(KEY.focus,[]).map(x=>x.id===it.id?it:x)); refreshDashboard(); };
-  return row;
-}
-function focusEdit(it){
-  const isNew=!it; const data=it||{text:''};
-  const body=document.createElement('div'); body.innerHTML='<div class="field"><label>聚焦事项</label><textarea id="f_text" placeholder="今天最重要的事">'+escapeHtml(data.text)+'</textarea></div>';
-  openModal({ title:isNew?'添加聚焦':'编辑聚焦', body, actions:[
-    {label:'取消', onClick:c=>c()},
-    {label:'保存', primary:true, onClick:c=>{
-      const text=$('#f_text').value.trim(); if(!text){toast('内容不能为空','err');return;}
-      if(isNew){ const arr=Store.get(KEY.focus,[]); if(arr.length>=5){ toast('聚焦上限 5 件，请先完成部分','err'); return; } arr.push({id:uid(),text,done:false,createdAt:nowISO()}); Store.set(KEY.focus,arr); }
-      else { Store.set(KEY.focus, Store.get(KEY.focus,[]).map(x=>x.id===it.id?{...x,text}:x)); }
-      c(); refreshDashboard(); renderFocus(); toast('已保存','ok');
-    }}
-  ]});
-}
-async function delFocus(it){ if(await confirmModal('确定删除该聚焦事项？')){ Store.set(KEY.focus,(Store.get(KEY.focus,[])||[]).filter(x=>x.id!==it.id)); refreshDashboard(); renderFocus(); toast('已删除','ok'); } }
+
 
 /* ============== 月度计划（核心） ============== */
 function renderMonth(){
@@ -725,7 +761,8 @@ function renderMonth(){
   $('#prevM').onclick=()=>{ if(m===0){state.viewMonth=11;state.viewYear--;}else state.viewMonth--; refreshDashboard(); renderMonth(); };
   $('#nextM').onclick=()=>{ if(m===11){state.viewMonth=0;state.viewYear++;}else state.viewMonth++; refreshDashboard(); renderMonth(); };
   $$('.cal .day[data-date]').forEach(el=>{ el.onclick=()=>{ state.selDate=el.dataset.date; renderMonth(); }; });
-  if(state.selDate) renderDayPanel(state.selDate);
+  if(!state.selDate) state.selDate=todayKey();
+  renderDayPanel(state.selDate);
 }
 function renderDayPanel(ds){
   const panel=$('#dayPanel'); if(!panel) return;
@@ -995,52 +1032,101 @@ function importAcc(){
 let urlFilter='';
 async function renderUrls(){
   const view=$('#view');
-  const cats=await loadUrlCats();
   view.innerHTML=
     '<div class="view-head"><h2>🌍 公司网址</h2><div class="spacer"></div>'+btn('+ 新增网址','primary',()=>urlEdit(null))+'</div>'+
-    '<div class="row" style="margin-bottom:12px"><input class="search" id="urlSearch" placeholder="搜索 名称/网址/账号/分类"><div class="spacer"></div><span id="urlCats" class="row"></span></div>'+
+    '<div class="row" style="margin-bottom:12px"><input class="search" id="urlSearch" placeholder="搜索 名称/网址/账号/分类/备注"><div class="spacer"></div><span id="urlCats" class="row"></span></div>'+
     '<div class="grid cols-2" id="urlGrid"></div>';
   const q=urlFilter.trim().toLowerCase();
   let arr=await loadEncrypted(KEY.url);
   if(arr===null){ $('#urlGrid').innerHTML='<div class="empty">无法解密，请确认主密码</div>'; return; }
+  arr=arr.map(normUrl);
   const catSet=new Set(arr.map(u=>u.category||'默认'));
   $('#urlCats').innerHTML='<span class="chip '+(!urlFilter?'active':'')+'" data-c="">全部</span>'+Array.from(catSet).map(c=>'<span class="chip" data-c="'+escapeHtml(c)+'">'+escapeHtml(c)+'</span>').join('');
-  $$('#urlCats .chip').forEach(ch=>ch.onclick=async ()=>{ urlFilter=ch.dataset.c?('cat:'+ch.dataset.c):''; await renderUrls(); });
+  $$('#urlCats .chip').forEach(ch=>ch.onclick=()=>{ urlFilter=ch.dataset.c?('cat:'+ch.dataset.c):''; renderUrls(); });
   let shown=arr;
-  if(q){ shown = q.startsWith('cat:')? arr.filter(u=>(u.category||'默认')===q.slice(4)) : arr.filter(u=>[u.name,u.url,u.account,u.category].join(' ').toLowerCase().includes(q)); }
+  const accText=u=>(u.accounts||[]).map(a=>(a.user||'')+' '+(a.pass||'')).join(' ');
+  if(q){ shown = q.startsWith('cat:')? arr.filter(u=>(u.category||'默认')===q.slice(4)) : arr.filter(u=>[u.name,u.url,accText(u),u.category,u.note].join(' ').toLowerCase().includes(q)); }
   const grid=$('#urlGrid');
   if(!shown.length){ grid.innerHTML='<div class="empty">暂无网址</div>'; return; }
   shown.forEach(u=>{
     const el=document.createElement('div'); el.className='card';
-    el.innerHTML='<div class="row" style="justify-content:space-between"><b>'+escapeHtml(u.name||'')+'</b>'+(u.category?'<span class="tag cat">'+escapeHtml(u.category)+'</span>':'')+'</div>'+
-      '<div class="mono muted" style="font-size:13px;margin:6px 0;word-break:break-all">'+escapeHtml(u.url||'')+'</div>'+
-      (u.account?'<div class="muted" style="font-size:12px">账号：'+escapeHtml(u.account)+'</div>':'')+
-      '<div class="row" style="margin-top:10px">'+btn('🔗 打开','sm primary',()=>openUrl(u.url))+btn('复制账号','sm',()=>copyText(u.account||''))+btn('复制密码','sm',()=>copyText(u.password||''))+btn('编辑','sm',()=>urlEdit(u))+btn('删','sm danger',()=>delUrl(u))+'</div>';
+    let html='<div class="row" style="justify-content:space-between"><b>'+escapeHtml(u.name||'')+'</b>'+(u.category?'<span class="tag cat">'+escapeHtml(u.category)+'</span>':'')+'</div>'+
+      '<div class="mono muted" style="font-size:13px;margin:6px 0;word-break:break-all">'+escapeHtml(u.url||'')+'</div>';
+    (u.accounts||[]).forEach((a,i)=>{
+      const user=a.user||'', pass=a.pass||'';
+      html+='<div class="acc-line"><span class="muted" style="font-size:12px">账号'+(u.accounts.length>1?(' '+(i+1)):'')+'：'+escapeHtml(user)+'</span>'+
+        '<div class="row" style="margin:4px 0 0;gap:6px">'+(user?btn('复制账号','sm',()=>copyText(user)):'')+(pass?btn('复制密码','sm',()=>copyText(pass)):'')+'</div></div>';
+    });
+    if(u.note) html+='<div class="muted" style="font-size:12px;margin-top:6px;white-space:pre-wrap">备注：'+escapeHtml(u.note)+'</div>';
+    html+='<div class="row" style="margin-top:10px">'+btn('🔗 打开','sm primary',()=>openUrl(u.url))+btn('编辑','sm',()=>urlEdit(u))+btn('删','sm danger',()=>delUrl(u))+'</div>';
+    el.innerHTML=html;
     grid.appendChild(el);
   });
   const s=$('#urlSearch'); if(s) s.oninput=async e=>{ urlFilter=e.target.value; await renderUrls(); };
+}
+function normUrl(u){
+  u=u||{};
+  if(!Array.isArray(u.accounts)){
+    const accs=[];
+    if((u.account&&u.account.trim())||(u.password&&u.password.length)) accs.push({user:u.account||'', pass:u.password||''});
+    u.accounts=accs;
+  }
+  if(u.note==null) u.note='';
+  if(u.category==null) u.category='';
+  return u;
 }
 function openUrl(u){ if(!u) return; window.open(/^https?:\/\//.test(u)?u:('https://'+u), '_blank'); }
 async function loadUrlCats(){ return []; }
 async function urlEdit(it){
   await MasterKey.ensure().catch(()=>{}); if(!MasterKey.get()) return;
-  const isNew=!it; const u=it||{name:'',url:'',account:'',password:'',category:''};
+  const isNew=!it;
+  const u = isNew ? {name:'',url:'',category:'',note:'',accounts:[{user:'',pass:''}]} : normUrl(JSON.parse(JSON.stringify(it)));
+  if(!u.accounts.length) u.accounts=[{user:'',pass:''}];
   const body=document.createElement('div');
-  body.innerHTML='<div class="field"><label>名称</label><input id="u_name" value="'+escapeHtml(u.name||'')+'"></div>'+
+  let arr0=await loadEncrypted(KEY.url); if(arr0===null) arr0=[];
+  const existingCats=Array.from(new Set(arr0.map(x=>(x.category||'').trim()).filter(Boolean)));
+  const chipsHtml = existingCats.length ? '<div class="cat-chips" id="u_catChips">'+existingCats.map(c=>'<span class="chip" data-c="'+escapeHtml(c)+'">'+escapeHtml(c)+'</span>').join('')+'</div>' : '';
+  body.innerHTML=
+    '<div class="field"><label>名称</label><input id="u_name" value="'+escapeHtml(u.name||'')+'"></div>'+
     '<div class="field"><label>网址</label><input id="u_url" class="mono" value="'+escapeHtml(u.url||'')+'" placeholder="https://..."></div>'+
-    '<div class="field-row"><div class="field"><label>登录账号</label><input id="u_acc" value="'+escapeHtml(u.account||'')+'"></div>'+
-      '<div class="field"><label>密码</label><input id="u_pw" type="password" value="'+escapeHtml(u.password||'')+'"></div></div>'+
-    '<div class="field"><label>分类</label><input id="u_cat" value="'+escapeHtml(u.category||'')+'" placeholder="如：内部系统/供应商/政府"></div>';
+    '<div class="field"><label>分类</label><input id="u_cat" value="'+escapeHtml(u.category||'')+'" placeholder="如：内部系统/供应商/政府">'+chipsHtml+'</div>'+
+    '<div class="field"><label>账号密码（可多组）</label><div id="u_accBox"></div><button type="button" id="u_addAcc" class="btn sm" style="margin-top:6px">＋ 添加一组账号密码</button></div>'+
+    '<div class="field"><label>备注</label><textarea id="u_note" rows="2" placeholder="补充说明...">'+escapeHtml(u.note||'')+'</textarea></div>';
   openModal({ title:isNew?'新增网址':'编辑网址', body, actions:[
     {label:'取消', onClick:c=>c()},
     {label:'保存', primary:true, onClick:async c=>{
       const name=$('#u_name').value.trim(), url=$('#u_url').value.trim(); if(!name){toast('名称必填','err');return;}
-      const obj={id:isNew?uid():it.id, name, url, account:$('#u_acc').value.trim(), password:$('#u_pw').value, category:$('#u_cat').value.trim()||'默认', createdAt:isNew?nowISO():(it.createdAt||nowISO()), updatedAt:nowISO()};
+      const accounts=[];
+      for(let i=0;i<u.accounts.length;i++){
+        const user=($('#u_acc_'+i)?$('#u_acc_'+i).value:'').trim();
+        const pass=($('#u_pw_'+i)?$('#u_pw_'+i).value:'');
+        if(user||pass) accounts.push({user, pass});
+      }
+      const obj={id:isNew?uid():it.id, name, url, category:$('#u_cat').value.trim()||'默认', note:$('#u_note').value.trim(), accounts, createdAt:isNew?nowISO():(it.createdAt||nowISO()), updatedAt:nowISO()};
       let arr=await loadEncrypted(KEY.url); if(arr===null) arr=[];
       if(isNew) arr.unshift(obj); else arr=arr.map(x=>x.id===obj.id?obj:x);
       try{ await saveEncrypted(KEY.url, arr); c(); await renderUrls(); toast('已加密保存','ok'); }catch(e){ toast('保存失败','err'); }
     }}
   ]});
+  const accBox=$('#u_accBox');
+  function renderAccRows(){
+    accBox.innerHTML=u.accounts.map((a,idx)=>
+      '<div class="acc-row">'+
+        '<input id="u_acc_'+idx+'" class="mono" placeholder="账号" value="'+escapeHtml(a.user||'')+'">'+
+        '<input id="u_pw_'+idx+'" type="password" placeholder="密码" value="'+escapeHtml(a.pass||'')+'">'+
+        (u.accounts.length>1?'<button type="button" class="btn sm danger" data-del="'+idx+'">✕</button>':'')+
+      '</div>'
+    ).join('');
+    u.accounts.forEach((a,idx)=>{
+      const ai=$('#u_acc_'+idx), pi=$('#u_pw_'+idx), del=accBox.querySelector('[data-del="'+idx+'"]');
+      if(ai) ai.oninput=()=>{ u.accounts[idx].user=ai.value; };
+      if(pi) pi.oninput=()=>{ u.accounts[idx].pass=pi.value; };
+      if(del) del.onclick=()=>{ u.accounts.splice(idx,1); renderAccRows(); };
+    });
+  }
+  renderAccRows();
+  $('#u_addAcc').onclick=()=>{ u.accounts.push({user:'',pass:''}); renderAccRows(); };
+  if(existingCats.length){ $$('#u_catChips .chip').forEach(ch=>ch.onclick=()=>{ $('#u_cat').value=ch.dataset.c; }); }
 }
 async function delUrl(u){ if(await confirmModal('删除网址「'+u.name+'」？')){ let arr=await loadEncrypted(KEY.url); if(arr===null) arr=[]; arr=arr.filter(x=>x.id!==u.id); await saveEncrypted(KEY.url, arr); await renderUrls(); toast('已删除','ok'); } }
 
@@ -1243,7 +1329,6 @@ function buildWeekly(){
   const end=new Date(); const start=new Date(end.getTime()-6*86400000);
   const inRange=iso=>{ const t=new Date(iso).getTime(); return t>=start.getTime() && t<=end.getTime()+86400000; };
   const todos=(Store.get(KEY.todo,[])||[]).filter(t=>t.createdAt&&inRange(t.createdAt));
-  const focus=(Store.get(KEY.focus,[])||[]).filter(t=>t.createdAt&&inRange(t.createdAt));
   const plan=Store.get(KEY.month,{})||{}; let mItems=[];
   Object.keys(plan).forEach(d=>plan[d].forEach(it=>{ if(it.createdAt&&inRange(it.createdAt)||(it.updatedAt&&inRange(it.updatedAt))) mItems.push({date:d, ...it}); }));
   const dev=(Store.get(KEY.dev,[])||[]).filter(d=>d.updatedAt&&inRange(d.updatedAt));
@@ -1255,19 +1340,17 @@ function buildWeekly(){
   L.push('## 一、今日待办（本周新增 '+todos.length+'）');
   todos.forEach(t=>L.push('- ['+(t.done?'x':' ')+'] '+t.text));
   L.push('');
-  L.push('## 二、今日聚焦（'+focus.length+'）');
-  focus.forEach(t=>L.push('- ['+(t.done?'x':' ')+'] '+t.text));
   L.push('');
-  L.push('## 三、月度计划进展（'+mItems.length+'）');
+  L.push('## 二、月度计划进展（'+mItems.length+'）');
   mItems.forEach(it=>L.push('- '+it.date+' · ['+(isComplete(it)?'x':' ')+'] '+it.text+(it.category?'（'+it.category+'）':'')));
   L.push('');
-  L.push('## 四、设备运维（'+dev.length+'）');
+  L.push('## 三、设备运维（'+dev.length+'）');
   dev.forEach(d=>L.push('- '+escapeHtml(d.deviceName||'')+(d.replacementRecords&&d.replacementRecords.length?('：'+d.replacementRecords.length+' 次更换'):'')));
   L.push('');
-  L.push('## 五、网络维护（'+net.length+'）');
+  L.push('## 四、网络维护（'+net.length+'）');
   net.forEach(n=>L.push('- '+escapeHtml(n.incidentDate||'')+' · '+escapeHtml(n.cause||'')+'（'+(n.severity==='high'?'严重':n.severity==='low'?'轻微':'一般')+'）'));
   L.push('');
-  L.push('## 六、知识沉淀（'+know.length+'）');
+  L.push('## 五、知识沉淀（'+know.length+'）');
   know.forEach(k=>L.push('- '+escapeHtml(k.title||'')));
   L.push('');
   L.push('> 由「个人工作台」自动生成');
@@ -1275,7 +1358,7 @@ function buildWeekly(){
 }
 
 /* ============================ WebDAV 同步层（坚果云 + 无服务器代理） ============================ */
-const SYNC_KEYS=['todayTodos','tasks','monthlyPlan','yearlyArchive','ipDevices','encryptedAccounts','encryptedUrls','deviceMaintenance','networkMaintenance','knowledge'];
+const SYNC_KEYS=['todayTodos','monthlyPlan','yearlyArchive','ipDevices','encryptedAccounts','encryptedUrls','deviceMaintenance','networkMaintenance','knowledge'];
 const SYNC_FOLDER='工作台';
 const SYNC_META_KEY='wbSyncMeta'; // { [key]: updatedAt }
 const SYNC_KEYSET_KEY='wbSyncKeyset'; // 动态登记的同步 key（新增模块自动纳入）
@@ -1338,6 +1421,22 @@ const Sync={
     if(res.status===401) throw new Error('认证失败');
     if(res.status>=400) throw new Error('上传失败 HTTP '+res.status);
     return true;
+  },
+  async publishSite(){
+    if(!this.isConfigured()){ toast('请先保存同步配置','err'); return; }
+    SyncStatus.set('syncing','发布中');
+    try{
+      const html='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
+      const path=this.folderPath()+'/personal-workbench.html';
+      const res=await this.request('PUT', path, html, true);
+      if(res.status===401) throw new Error('认证失败');
+      if(res.status>=400) throw new Error('发布失败 HTTP '+res.status);
+      SyncStatus.set('success','已发布 '+fmtTime(Date.now()));
+      toast('已发布到云端，刷新 SCF 页面地址即最新版','ok');
+    }catch(e){
+      SyncStatus.set('error',(e&&e.message)||'发布失败');
+      toast('发布失败：'+((e&&e.message)||''),'err');
+    }
   },
   async downloadData(key){
     const res=await this.request('GET', this.folderPath()+'/'+key+'.json');
@@ -1432,6 +1531,7 @@ function initSync(){
     Sync.cfg=cfg; toast('配置已保存','ok'); Sync.testConnection();
   };
   if($('#cfgTest')) $('#cfgTest').onclick=()=>Sync.testConnection();
+  if($('#cfgPublish')) $('#cfgPublish').onclick=()=>Sync.publishSite();
   if($('#cfgSync')) $('#cfgSync').onclick=()=>Sync.fullSync();
   if($('#syncBtn')) $('#syncBtn').onclick=()=>Sync.fullSync();
   if(Sync.cfg){ $('#cfgUrl').value=Sync.cfg.serverUrl||''; $('#cfgUser').value=Sync.cfg.username||''; $('#cfgPass').value=Sync.cfg.password||''; $('#cfgSecret').value=Sync.cfg.secret||''; }
@@ -1442,17 +1542,65 @@ function initSync(){
   else SyncStatus.set('offline','未配置');
 }
 
+/* ============================ 界面主题（风格切换） ============================ */
+const THEME_KEY='uiTheme';
+function applyTheme(name){
+  name=name||'teal';
+  document.documentElement.className = (name==='teal') ? '' : ('theme-'+name);
+  try{ localStorage.setItem(THEME_KEY, name); }catch(e){}
+}
+function initTheme(){
+  let t='teal'; try{ t=localStorage.getItem(THEME_KEY)||'teal'; }catch(e){}
+  applyTheme(t);
+  const sel=$('#themeSel'); if(sel){ sel.value=t; sel.onchange=()=>applyTheme(sel.value); }
+}
+/* 数据迁移：旧「今日聚焦」并入「今日待办」，丢弃聚焦概念 */
+function migrateFocusToTodo(){
+  try{
+    const tasks=Store.get('tasks', null);
+    if(Array.isArray(tasks) && tasks.length){
+      const todos=Store.get('todayTodos', [])||[];
+      const ids=new Set(todos.map(t=>t.id));
+      tasks.forEach(t=>{ if(t && t.id && !ids.has(t.id)) todos.push(t); });
+      Store.set('todayTodos', todos);
+      Store.del('tasks');
+    }
+  }catch(e){}
+}
+
 /* ============================ 初始化 ============================ */
 function tickClock(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); $('#clock').textContent=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
 function init(){
+  migrateFocusToTodo();
+  initTheme();
   buildNav();
   initSync();
   $('#hamburger').onclick=()=>{ const sb=$('#sidebar'); sb.classList.toggle('open'); let bd=$('.backdrop'); if(sb.classList.contains('open')&&!bd){ bd=document.createElement('div'); bd.className='backdrop'; bd.onclick=()=>{ sb.classList.remove('open'); bd.remove(); }; document.body.appendChild(bd); } else if(!sb.classList.contains('open')&&bd){ bd.remove(); } };
+  $('#logoutBtn').onclick=()=>logoutMenu();
+  function logoutMenu(){
+    const body=document.createElement('div');
+    body.innerHTML='<div class="warn" style="margin-bottom:10px">选择退出方式：</div>'+
+      '<div style="font-size:13px;line-height:1.8;color:var(--ink-2)">'+
+      '🔒 <b>锁屏</b>：保留本机所有数据，下次打开需重新输入主密码。<br>'+
+      '🧹 <b>清除本机全部数据</b>：删除本浏览器所有本地数据（加密业务数据 + 同步配置）。'+
+      '云端已同步的数据可在重设同步后恢复；<b>未同步的改动会丢失</b>。</div>';
+    openModal({ title:'退出工作台', body, actions:[
+      {label:'取消', onClick:c=>c()},
+      {label:'锁屏', primary:true, onClick:c=>{ MasterKey.clear(); c(); location.reload(); }},
+      {label:'清除本机数据', danger:true, onClick:c=>{
+        c();
+        confirmModal('将删除本浏览器所有本地数据且不可撤销。仅当已同步到云端时数据可恢复。确定继续？', {title:'确认清除本机数据', ok:'确认清除'}).then(ok=>{
+          if(ok){ try{ localStorage.clear(); sessionStorage.clear(); }catch(e){} location.reload(); }
+        });
+      }}
+    ]});
+  }
   tickClock(); setInterval(tickClock, 30000);
   go('home');
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
 </script>
-</body>
-</html>
+
+
+</body></html>
