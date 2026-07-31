@@ -442,7 +442,7 @@ const MasterKey={
         actions:[
           {label:'取消', onClick:c=>{ c(); reject(new Error('cancelled')); }},
           {label:'确定', primary:true, onClick:c=>{
-            const a=$('#mk').value, b=$('#mk2').value;
+            const a=body.querySelector('#mk').value, b=body.querySelector('#mk2').value;
             if(!MasterKey.valid(a)){ toast('主密码至少 6 位','err'); return; }
             if(a!==b){ toast('两次输入不一致','err'); return; }
             MasterKey.set(a); c(); resolve(a);
@@ -460,7 +460,7 @@ const MasterKey={
         '<div class="pw-strength" id="mkStrength"><span class="bar"><i></i></span><span class="txt"></span></div></div>';
       openModal({ title:'解锁加密数据', body, actions:[
         {label:'取消', onClick:c=>{ c(); reject(new Error('cancelled')); }},
-        {label:'解锁', primary:true, onClick:c=>{ const v=$('#mk').value; if(!v){toast('请输入密码','err');return;} c(); resolve(v); }}
+        {label:'解锁', primary:true, onClick:c=>{ const el=body.querySelector('#mk'); const v=el?el.value:''; if(!v){toast('请输入密码','err');return;} c(); resolve(v); }}
       ]});
       const _mk=body.querySelector('#mk'), _st=body.querySelector('#mkStrength');
       if(_mk&&_st){ const _upd=()=>{ const r=evaluatePwd(_mk.value); _st.className='pw-strength '+(r.cls||''); _st.querySelector('.txt').textContent=r.label; }; _mk.addEventListener('input',_upd); _upd(); }
