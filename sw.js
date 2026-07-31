@@ -1,5 +1,5 @@
 // 个人工作台 PWA Service Worker：仅缓存同源页面外壳，WebDAV 同步（跨域）走网络
-const CACHE = 'wb-shell-v1';
+const CACHE = 'wb-shell-v2';
 const ASSETS = [
   './',
   './index.html',
