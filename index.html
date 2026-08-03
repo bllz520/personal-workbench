@@ -200,6 +200,13 @@ td .ops{display:flex; gap:6px}
 .cal .day .dots{display:flex; gap:3px; flex-wrap:wrap; margin-top:auto}
 .cal .day .mini{font-size:11px; color:var(--ink-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .cal .day .pct{font-size:10px; color:var(--green); font-weight:700}
+.cal .day{position:relative}
+.cal .day .pbadge{position:absolute; top:3px; right:5px; font-size:11px; line-height:1}
+.cal .day.inrange{background:var(--brand-soft); border-color:var(--brand)}
+.cal .day.inrange-start{border-width:2px; border-color:var(--brand)}
+.period-item{background:var(--brand-soft)}
+.period-item .ttl{font-weight:600; flex:1}
+.hint{font-size:12px; color:var(--ink-2); margin-top:4px}
 
 /* detail panel */
 .detail .ditem{border:1px solid var(--line); border-radius:10px; padding:11px 13px; margin-bottom:10px}
@@ -611,6 +618,7 @@ async function unlockOrNull(key){
 /* ============================ 看板 ============================ */
 const state={ view:'home', viewYear:new Date().getFullYear(), viewMonth:new Date().getMonth() };
 function isComplete(it){ return it.done===true || (it.progress!=null && it.progress>=100); }
+function addDays(ds, n){ const a=ds.split('-').map(Number); const dt=new Date(a[0],a[1]-1,a[2]); dt.setDate(dt.getDate()+n); const p=x=>String(x).padStart(2,'0'); return dt.getFullYear()+'-'+p(dt.getMonth()+1)+'-'+p(dt.getDate()); }
 function monthItems(y,m){
   const plan=Store.get(KEY.month, {})||{}; const out=[];
   Object.keys(plan).forEach(d=>{ const [yy,mm]=d.split('-').map(Number); if(yy===y && (mm-1)===m) plan[d].forEach(it=>out.push({date:d, ...it})); });
@@ -743,10 +751,33 @@ function renderTodo(){
   const list=Store.get(KEY.todo,[])||[];
   view.innerHTML=
     '<div class="view-head"><h2>📋 今日待办</h2><div class="spacer"></div>'+btn('+ 新建','primary',()=>todoEdit(null))+'</div>'+
-    '<div class="list" id="todoList"></div>';
+    '<div class="list" id="todoList"></div>'+
+    '<div id="todayPeriod" style="margin-top:18px"></div>';
   const box=$('#todoList');
-  if(!list.length){ box.innerHTML='<div class="empty">暂无待办，点右上角「新建」开始吧</div>'; return; }
-  list.forEach(it=>box.appendChild(todoRow(it)));
+  if(!list.length){ box.innerHTML='<div class="empty">暂无待办，点右上角「新建」开始吧</div>'; }
+  else list.forEach(it=>box.appendChild(todoRow(it)));
+  renderTodayPeriod();
+}
+function renderTodayPeriod(){
+  const box=$('#todayPeriod'); if(!box) return;
+  const t=todayKey();
+  const plan=Store.get(KEY.month,{})||{};
+  let items=[];
+  Object.keys(plan).forEach(d=> (plan[d]||[]).forEach(it=>{ const n=it.periodDays||1; if(n>1){ const end=addDays(d,n-1); if(t>=d && t<=end) items.push({ds:d, end, ...it}); } }));
+  if(!items.length){ box.innerHTML=''; return; }
+  let html='<div class="card"><div class="view-head" style="margin:0 0 10px"><h3 style="margin:0">📌 今日周期计划</h3><div class="spacer"></div><span class="muted">仅展示，不计入完成率</span></div>';
+  items.forEach(it=>{
+    const total=it.periodDays||1; const elapsed=Math.max(0, Math.ceil((new Date(t)-new Date(it.ds))/86400000)); const pct=Math.min(100, Math.round(elapsed/total*100));
+    html+='<div class="ditem" style="border-style:dashed">'+
+      '<div class="top"><span class="tag cat">🔁'+total+'天</span>'+
+        '<div class="ttl">'+escapeHtml(it.text)+'</div>'+
+        priTag(it.priority||'mid')+(it.category?'<span class="tag cat">'+escapeHtml(it.category)+'</span>':'')+'</div>'+
+      '<div class="meta row" style="margin-top:6px"><span class="muted">'+it.ds+' ~ '+it.end+'</span>'+
+        '<div class="progress" style="flex:1;margin:0 8px"><i style="width:'+pct+'%"></i></div><span class="progress-num">进行 '+pct+'%</span>'+
+        btn('去月度','sm',()=>{ const p=it.ds.split('-'); state.viewYear=+p[0]; state.viewMonth=+p[1]-1; state.selDate=it.ds; go('month'); })+'</div>'+
+    '</div>';
+  });
+  html+='</div>'; box.innerHTML=html;
 }
 function priTag(p){ const m={high:['高','p-high'],mid:['中','p-mid'],low:['低','p-low']}; const x=m[p]||m.mid; return '<span class="tag '+x[1]+'">'+x[0]+'</span>'; }
 function todoRow(it){
@@ -827,8 +858,9 @@ function renderMonth(){
     const rate=arr.length?Math.round(done/arr.length*100):0;
     const dots=arr.slice(0,3).map(it=>'<span class="dot" title="'+escapeHtml(it.text)+'"></span>').join('');
     const mini=arr[0]?('<div class="mini">'+escapeHtml(arr[0].text)+'</div>'):'';
-    const cls='day'+(ds===tKey?' today':'')+(state.selDate===ds?' sel':'');
-    html+='<div class="'+cls+'" data-date="'+ds+'"><div class="dnum">'+d+'</div>'+mini+
+    const hasPeriod=arr.some(it=>(it.periodDays||1)>1);
+    const cls='day'+(ds===tKey?' today':'')+(state.selDate===ds?' sel':'')+(hasPeriod?' inrange-start':'');
+    html+='<div class="'+cls+'" data-date="'+ds+'"><div class="dnum">'+d+(hasPeriod?'<span class="pbadge">🔁</span>':'')+'</div>'+mini+
       '<div class="dots">'+dots+(arr.length>3?'<span class="muted" style="font-size:10px">+'+(arr.length-3)+'</span>':'')+'</div>'+
       (arr.length?'<div class="pct">'+rate+'%</div>':'')+'</div>';
   }
@@ -837,12 +869,38 @@ function renderMonth(){
   for(let d=1;d<=tail;d++){ html+='<div class="day other"><div class="dnum">'+d+'</div></div>'; }
   html+='</div>';
   html+='<div id="dayPanel" style="margin-top:16px"></div>';
+  html+='<div id="periodPanel" style="margin-top:18px"></div>';
   view.innerHTML=html;
+  (function(){ const all=Store.get(KEY.month,{})||{}; Object.keys(all).forEach(d0=>{ (all[d0]||[]).forEach(it=>{ const n=it.periodDays||1; if(n>1){ let cur=d0; const end=addDays(d0,n-1); while(cur<=end){ const p=cur.split('-').map(Number); if(p[0]===y && (p[1]-1)===m){ const cell=view.querySelector('.cal .day[data-date="'+cur+'"]'); if(cell) cell.classList.add('inrange'); } cur=addDays(cur,1); } } }); }); })();
   $('#prevM').onclick=()=>{ if(m===0){state.viewMonth=11;state.viewYear--;}else state.viewMonth--; refreshDashboard(); renderMonth(); };
   $('#nextM').onclick=()=>{ if(m===11){state.viewMonth=0;state.viewYear++;}else state.viewMonth++; refreshDashboard(); renderMonth(); };
   $$('.cal .day[data-date]').forEach(el=>{ el.onclick=()=>{ state.selDate=el.dataset.date; renderMonth(); }; });
   if(!state.selDate) state.selDate=todayKey();
   renderDayPanel(state.selDate);
+  renderPeriodPanel();
+}
+function renderPeriodPanel(){
+  const panel=$('#periodPanel'); if(!panel) return;
+  const plan=Store.get(KEY.month,{})||{};
+  let items=[];
+  Object.keys(plan).forEach(d=> (plan[d]||[]).forEach(it=>{ if((it.periodDays||1)>1) items.push({ds:d, ...it}); }));
+  if(!items.length){ panel.innerHTML=''; return; }
+  items.sort((a,b)=> a.ds<b.ds?-1:(a.ds>b.ds?1:0));
+  const t=todayKey();
+  let html='<div class="card"><div class="view-head" style="margin:0 0 10px"><h3 style="margin:0">📌 周期 / 长期计划</h3><div class="spacer"></div><span class="muted">共 '+items.length+' 项（跨月可见）</span></div>';
+  items.forEach(it=>{
+    const end=addDays(it.ds, (it.periodDays||1)-1);
+    const left = t>end ? '已结束' : (t<it.ds ? '未开始' : '剩 '+Math.max(0,Math.ceil((new Date(end)-new Date(t))/86400000))+' 天');
+    html+='<div class="ditem period-item" data-id="'+it.id+'">'+
+      '<div class="top"><span class="tag cat">🔁'+(it.periodDays||1)+'天</span>'+
+        '<div class="ttl">'+escapeHtml(it.text)+'</div>'+
+        priTag(it.priority||'mid')+(it.category?'<span class="tag cat">'+escapeHtml(it.category)+'</span>':'')+'</div>'+
+      '<div class="meta row" style="margin-top:6px"><span class="muted">'+it.ds+' ~ '+end+' · '+left+'</span>'+
+        '<div class="progress" style="flex:1;margin:0 8px"><i style="width:'+(it.progress||0)+'%"></i></div><span class="progress-num">'+(it.progress||0)+'%</span>'+
+        btn('编辑','sm',()=>monthItemEdit(it, it.ds))+btn('完成','sm',()=>{ it.done=true; it.progress=100; it.updatedAt=nowISO(); saveMonthItem(it.ds, it); })+btn('删','sm danger',()=>delMonth(it, it.ds))+'</div>'+
+    '</div>';
+  });
+  html+='</div>'; panel.innerHTML=html;
 }
 function renderDayPanel(ds){
   const panel=$('#dayPanel'); if(!panel) return;
@@ -899,13 +957,15 @@ async function delMonth(it, ds){
   }
 }
 function monthItemEdit(it, ds){
-  const isNew=!it; const data=it||{text:'',priority:'mid',progress:0,category:'',subtasks:[]};
+  const isNew=!it; const data=it||{text:'',priority:'mid',progress:0,category:'',subtasks:[],periodDays:1};
   const body=document.createElement('div');
   body.innerHTML='<div class="field"><label>任务内容</label><textarea id="m_text">'+escapeHtml(data.text)+'</textarea></div>'+
     '<div class="field-row"><div class="field"><label>优先级</label><select id="m_pri">'+
       '<option value="high"'+(data.priority==='high'?' selected':'')+'>高</option><option value="mid"'+(data.priority==='mid'?' selected':'')+'>中</option><option value="low"'+(data.priority==='low'?' selected':'')+'>低</option></select></div>'+
       '<div class="field"><label>分类</label><input id="m_cat" value="'+escapeHtml(data.category||'')+'" placeholder="如：生产/采购/行政"></div></div>'+
     '<div class="field"><label>完成进度：<b id="m_prv">'+(data.progress||0)+'%</b></label><input type="range" id="m_pro" min="0" max="100" value="'+(data.progress||0)+'" style="width:100%"></div>'+
+    '<div class="field"><label>持续天数（1=仅当天，&gt;1 为跨天周期计划）</label><input type="number" id="m_days" min="1" step="1" value="'+(data.periodDays||1)+'" style="width:100%"></div>'+
+    '<div class="hint" id="m_endhint"></div>'+
     '<div class="field"><label>子任务（每行一个）</label><textarea id="m_sub">'+escapeHtml((data.subtasks||[]).map(s=>s.text).join('\n'))+'</textarea></div>';
   openModal({ title:isNew?'新建月度任务':'编辑月度任务', body, size:'', actions:[
     {label:'取消', onClick:c=>c()},
@@ -915,11 +975,14 @@ function monthItemEdit(it, ds){
       const subText=$('#m_sub').value.split('\n').map(s=>s.trim()).filter(Boolean);
       const oldSubs=data.subtasks||[];
       const subtasks=subText.map((t,i)=>oldSubs[i]&&oldSubs[i].text===t?oldSubs[i]:{text:t,done:false});
-      const obj={id:isNew?uid():it.id, text, done:progress>=100, priority:$('#m_pri').value, progress, category:$('#m_cat').value.trim(), subtasks, createdAt:isNew?nowISO():data.createdAt, updatedAt:nowISO()};
+      const obj={id:isNew?uid():it.id, text, done:progress>=100, priority:$('#m_pri').value, progress, category:$('#m_cat').value.trim(), subtasks, periodDays:Math.max(1, parseInt($('#m_days').value||'1',10)||1), createdAt:isNew?nowISO():data.createdAt, updatedAt:nowISO()};
       saveMonthItem(ds, obj); c(); toast('已保存','ok');
     }}
   ]});
   const rng=$('#m_pro'); rng.oninput=()=>{ $('#m_prv').textContent=rng.value+'%'; };
+  const daysInput=$('#m_days'); const endHint=$('#m_endhint');
+  const updEnd=()=>{ const n=Math.max(1, parseInt(daysInput.value||'1',10)||1); const end=addDays(ds, n-1); endHint.textContent = n>1 ? ('📅 周期：'+ds+' ~ '+end+'（共 '+n+' 天）') : '仅当天生效'; };
+  daysInput.oninput=updEnd; updEnd();
 }
 function genMonthSummary(){
   const y=state.viewYear, m=state.viewMonth; const items=monthItems(y,m);
