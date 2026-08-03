@@ -295,9 +295,10 @@ td .ops{display:flex; gap:6px}
   .topbar .spacer{display:none}
   .view{padding:12px 14px 88px}
   .dashbar{padding:14px 14px 4px}
-  .item{padding:14px; min-height:54px; align-items:center}
+  .item{padding:14px; min-height:54px; align-items:center; flex-wrap:wrap}
   .item .title{font-size:15px}
-  .item .ops .btn{padding:7px 12px; min-height:38px}
+  .item .ops{width:100%; justify-content:flex-start; gap:10px; margin-top:8px}
+  .item .ops .btn{padding:9px 14px; min-height:42px; font-size:14px}
   .btn{min-height:40px}
   .card{padding:14px}
   .cal{gap:4px}
@@ -792,7 +793,7 @@ function todoRow(it){
   return row;
 }
 function fmtTime(iso){ if(!iso) return ''; const d=new Date(iso); const p=n=>String(n).padStart(2,'0'); return p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
-function opBtn(label, cls, onClick){ const b=document.createElement('button'); b.className='btn '+(cls||''); b.textContent=label; b.onclick=onClick; return b; }
+function opBtn(label, cls, onClick){ return _btnHTML(label, cls, onClick); }
 async function delTodo(it){
   if(await confirmModal('确定删除该待办「'+it.text+'」？')){
     Store.set(KEY.todo, (Store.get(KEY.todo,[])||[]).filter(x=>x.id!==it.id)); refreshDashboard(); renderTodo(); toast('已删除','ok');
@@ -1023,13 +1024,23 @@ function renderYear(){
     const el=document.createElement('div'); el.className='item';
     el.innerHTML='<div class="body"><div class="title">'+escapeHtml(a.title)+'</div>'+
       '<div class="meta"><span class="tag cat">'+escapeHtml(a.category||'未分类')+'</span><span>来源：'+escapeHtml(a.sourceDate||'')+'</span><span>归档：'+fmtTime(a.archivedAt)+'</span></div></div>'+
-      '<div class="ops">'+opBtn('删','sm danger',()=>delYear(a))+'</div>';
+      '<div class="ops">'+opBtn('回退','sm',()=>rollbackYear(a))+opBtn('删','sm danger',()=>delYear(a))+'</div>';
     box.appendChild(el);
   });
 }
 function exportYear(){ const data=Store.get(KEY.year,[])||[]; download('年度回顾-'+todayKey()+'.json', JSON.stringify(data,null,2), 'application/json'); toast('已导出','ok'); }
 async function clearYear(){ if(await confirmModal('确定清空全部年度归档？此操作不可恢复。')){ Store.del(KEY.year); refreshDashboard(); renderYear(); toast('已清空','ok'); } }
 async function delYear(a){ if(await confirmModal('删除该归档项？')){ Store.set(KEY.year,(Store.get(KEY.year,[])||[]).filter(x=>x.id!==a.id)); refreshDashboard(); renderYear(); toast('已删除','ok'); } }
+async function rollbackYear(a){
+  const ds=a.sourceDate||todayKey();
+  if(!(await confirmModal('将该归档项回退到月度计划「'+ds+'」？回退后恢复为未完成状态，可重新编辑/完成。'))) return;
+  const plan=Store.get(KEY.month,{})||{}; const arr=plan[ds]||[];
+  if(arr.find(x=>x.id===a.id)){ Store.set(KEY.year,(Store.get(KEY.year,[])||[]).filter(x=>x.id!==a.id)); refreshDashboard(); renderYear(); toast('该任务已在月度计划中','info'); return; }
+  arr.push({id:a.id, text:a.title, done:false, priority:'mid', progress:0, category:a.category||'', subtasks:a.subtasks||[], createdAt:a.completedAt||nowISO(), updatedAt:nowISO()});
+  plan[ds]=arr; Store.set(KEY.month, plan);
+  Store.set(KEY.year,(Store.get(KEY.year,[])||[]).filter(x=>x.id!==a.id));
+  refreshDashboard(); renderYear(); toast('已回退到月度计划 '+ds,'ok');
+}
 
 /* ============== 信息化管理 - 公司网络IP（Tab：设备IP / 账号密码） ============== */
 let ipTab='devices';
