@@ -690,7 +690,7 @@ function buildNav(){
 }
 function setActiveNav(id){ $$('.nav-item').forEach(e=>e.classList.toggle('active', e.dataset.id===id)); }
 function setActiveTab(id){ $$('.tabbar .tab').forEach(t=>{ const tid=t.dataset.id; t.classList.toggle('active', tid===id || (tid==='__more' && !['home','todo','dash','know'].includes(id))); }); }
-function go(id){ state.view=id; setActiveNav(id); setActiveTab(id); $('#viewTitle').textContent=TITLES[id]||''; $('#sidebar').classList.remove('open'); const bd=$('.backdrop'); if(bd) bd.remove(); render(); }
+function go(id, push){ const _cur=state.view; state.view=id; setActiveNav(id); setActiveTab(id); $('#viewTitle').textContent=TITLES[id]||''; $('#sidebar').classList.remove('open'); const bd=$('.backdrop'); if(bd) bd.remove(); render(); if(push!==false && 'pushState' in history && id!==_cur){ try{ history.pushState({view:id}, ''); }catch(e){} } }
 
 /* ============================ 渲染调度 ============================ */
 function render(){
@@ -1848,6 +1848,21 @@ function init(){
     };
   });
   if(!MasterKey.get() && MasterKey.tryTrusted()){ /* 受信任设备已记住，直接进，无需弹主密码 */ }
+  // 拦截系统返回键：PWA/手机端避免一按返回就直接退出，改为先回首页、再按一次才退出
+  let _exitArmed=false;
+  if('pushState' in history){
+    try{ history.pushState({view:'home'}, ''); }catch(e){}  // 守卫占位：保证首页按返回会触发 popstate 而非直接退出
+    window.addEventListener('popstate', function(e){
+      const sb=$('#sidebar');
+      if(sb && sb.classList.contains('open')){ sb.classList.remove('open'); const bd=$('.backdrop'); if(bd) bd.remove(); return; } // 抽屉打开时返回先关抽屉
+      const v=(e.state && e.state.view) ? e.state.view : 'home';
+      go(v, false); // 跟随浏览器历史回退，不再重复压栈
+      if(v==='home'){
+        if(_exitArmed){ /* 已二次确认，允许真正退出（不再占位） */ }
+        else { _exitArmed=true; try{ history.pushState({view:'home'}, ''); }catch(_){} toast('再按一次返回退出应用'); setTimeout(function(){ _exitArmed=false; }, 2000); }
+      } else { _exitArmed=false; }
+    });
+  }
   go('home');
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
