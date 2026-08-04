@@ -779,15 +779,20 @@ function renderTodayPeriod(){
   const plan=Store.get(KEY.month,{})||{};
   let items=[];
   Object.keys(plan).forEach(d=> (plan[d]||[]).forEach(it=>{ const n=it.periodDays||1; if(n>1){ const end=addDays(d,n-1); if(t>=d && t<=end) items.push({ds:d, end, ...it}); } }));
+  // 合并「每月重复」组：同一 repeatGroup 只保留一条，避免相邻月份副本重叠时重复显示
+  const seen=new Set();
+  items=items.filter(it=>{ if(it.repeatGroup){ if(seen.has(it.repeatGroup)) return false; seen.add(it.repeatGroup); return true; } return true; });
   if(!items.length){ box.innerHTML=''; return; }
   let html='<div class="card"><div class="view-head" style="margin:0 0 10px"><h3 style="margin:0">📌 今日周期计划</h3><div class="spacer"></div><span class="muted">仅展示，不计入完成率</span></div>';
   items.forEach(it=>{
     const total=it.periodDays||1; const elapsed=Math.max(0, Math.ceil((new Date(t)-new Date(it.ds))/86400000)); const pct=Math.min(100, Math.round(elapsed/total*100));
-    html+='<div class="ditem" style="border-style:dashed">'+
-      '<div class="top"><span class="tag cat">🔁'+total+'天</span>'+
+    const repLabel=it.repeatGroup?('🔁每月 · 每月'+(it.repeatDay||+it.ds.split('-')[2])+'号'):('🔁'+total+'天');
+    const repMeta=it.repeatGroup?('每月'+(it.repeatDay||+it.ds.split('-')[2])+'号 · 周期'+total+'天'):(it.ds+' ~ '+it.end);
+    html+='<div class="ditem">'+
+      '<div class="top"><span class="tag cat">'+repLabel+'</span>'+
         '<div class="ttl">'+escapeHtml(it.text)+'</div>'+
         priTag(it.priority||'mid')+(it.category?'<span class="tag cat">'+escapeHtml(it.category)+'</span>':'')+'</div>'+
-      '<div class="meta row" style="margin-top:6px"><span class="muted">'+it.ds+' ~ '+it.end+'</span>'+
+      '<div class="meta row" style="margin-top:6px"><span class="muted">'+repMeta+'</span>'+
         '<div class="progress" style="flex:1;margin:0 8px"><i style="width:'+pct+'%"></i></div><span class="progress-num">进行 '+pct+'%</span>'+
         btn('去月度','sm',()=>{ const p=it.ds.split('-'); state.viewYear=+p[0]; state.viewMonth=+p[1]-1; state.selDate=it.ds; go('month'); })+'</div>'+
     '</div>';
@@ -912,6 +917,9 @@ function renderPeriodPanel(){
   const plan=Store.get(KEY.month,{})||{};
   let items=[];
   Object.keys(plan).forEach(d=> (plan[d]||[]).forEach(it=>{ if((it.periodDays||1)>1) items.push({ds:d, ...it}); }));
+  // 合并「每月重复」组：同一 repeatGroup 只保留最早一条，避免全年 12 份重复列出
+  const seen=new Set();
+  items=items.filter(it=>{ if(it.repeatGroup){ if(seen.has(it.repeatGroup)) return false; seen.add(it.repeatGroup); return true; } return true; });
   if(!items.length){ panel.innerHTML=''; return; }
   items.sort((a,b)=> a.ds<b.ds?-1:(a.ds>b.ds?1:0));
   const t=todayKey();
@@ -919,11 +927,13 @@ function renderPeriodPanel(){
   items.forEach(it=>{
     const end=addDays(it.ds, (it.periodDays||1)-1);
     const left = t>end ? '已结束' : (t<it.ds ? '未开始' : '剩 '+Math.max(0,Math.ceil((new Date(end)-new Date(t))/86400000))+' 天');
+    const repLabel=it.repeatGroup?('🔁每月 · 每月'+(it.repeatDay||+it.ds.split('-')[2])+'号'):('🔁'+(it.periodDays||1)+'天');
+    const repMeta=it.repeatGroup?('全年每月'+(it.repeatDay||+it.ds.split('-')[2])+'号 · 周期'+(it.periodDays||1)+'天'):(it.ds+' ~ '+end+' · '+left);
     html+='<div class="ditem period-item" data-id="'+it.id+'">'+
-      '<div class="top"><span class="tag cat">🔁'+(it.periodDays||1)+'天</span>'+
+      '<div class="top"><span class="tag cat">'+repLabel+'</span>'+
         '<div class="ttl">'+escapeHtml(it.text)+'</div>'+
         priTag(it.priority||'mid')+(it.category?'<span class="tag cat">'+escapeHtml(it.category)+'</span>':'')+'</div>'+
-      '<div class="meta row" style="margin-top:6px"><span class="muted">'+it.ds+' ~ '+end+' · '+left+'</span>'+
+      '<div class="meta row" style="margin-top:6px"><span class="muted">'+repMeta+'</span>'+
         '<div class="progress" style="flex:1;margin:0 8px"><i style="width:'+(it.progress||0)+'%"></i></div><span class="progress-num">'+(it.progress||0)+'%</span>'+
         btn('编辑','sm',()=>monthItemEdit(it, it.ds))+btn('完成','sm',()=>{ it.done=true; it.progress=100; it.updatedAt=nowISO(); saveMonthItem(it.ds, it); })+btn('删','sm danger',()=>delMonth(it, it.ds))+'</div>'+
     '</div>';
