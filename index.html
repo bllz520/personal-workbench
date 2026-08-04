@@ -482,8 +482,8 @@ const MasterKey={
     try{ let k=localStorage.getItem('wbDevKey'); if(!k){ k=CryptoJS.lib.WordArray.random(24).toString(); localStorage.setItem('wbDevKey',k); } return k; }
     catch(e){ return 'wb-fallback'; }
   },
-  remember(days){
-    const k=this.get(); if(!k) return;
+  remember(days, k){
+    if(!k) k=this.get(); if(!k) return;   // 优先用显式传入的密码，避免解锁时 sessionStorage 尚未 set 导致空存
     const enc=CryptoJS.AES.encrypt(JSON.stringify({k, exp:Date.now()+days*86400000}), this._devKey()).toString();
     try{ localStorage.setItem('wbTrust', enc); }catch(e){}
   },
@@ -532,7 +532,7 @@ const MasterKey={
         '<label class="remember"><input type="checkbox" id="mkRemember"> 记住此设备（30 天内打开免输主密码）</label>';
       openModal({ title:'解锁加密数据', body, actions:[
         {label:'取消', onClick:c=>{ c(); reject(new Error('cancelled')); }},
-        {label:'解锁', primary:true, onClick:c=>{ const el=body.querySelector('#mk'); const v=el?el.value:''; if(!v){toast('请输入密码','err');return;} c(); if(body.querySelector('#mkRemember') && body.querySelector('#mkRemember').checked) MasterKey.remember(30); resolve(v); }}
+        {label:'解锁', primary:true, onClick:c=>{ const el=body.querySelector('#mk'); const v=el?el.value:''; if(!v){toast('请输入密码','err');return;} c(); if(body.querySelector('#mkRemember') && body.querySelector('#mkRemember').checked) MasterKey.remember(30, v); resolve(v); }}
       ]});
       const _mk=body.querySelector('#mk'), _st=body.querySelector('#mkStrength');
       if(_mk&&_st){ const _upd=()=>{ const r=evaluatePwd(_mk.value); _st.className='pw-strength '+(r.cls||''); _st.querySelector('.txt').textContent=r.label; }; _mk.addEventListener('input',_upd); _upd(); }
