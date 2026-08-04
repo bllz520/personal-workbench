@@ -190,7 +190,7 @@ td .ops{display:flex; gap:6px}
 .cal-head .mm{font-size:18px; font-weight:700; min-width:130px; text-align:center}
 .cal{display:grid; grid-template-columns:repeat(7,1fr); gap:6px}
 .cal .dow{text-align:center; font-size:12px; color:var(--ink-2); padding:4px 0; font-weight:600}
-.cal .day{background:var(--panel); border:1px solid var(--line); border-radius:10px; min-height:96px; padding:8px;
+.cal .day{background:var(--panel); border:1px solid var(--line); border-radius:10px; min-height:96px; padding:8px; touch-action:manipulation;
   cursor:pointer; transition:.15s; position:relative; display:flex; flex-direction:column; gap:4px}
 .cal .day:hover{border-color:var(--brand)}
 .cal .day.other{opacity:.45}
@@ -917,7 +917,7 @@ function renderMonth(){
   (function(){ const all=Store.get(KEY.month,{})||{}; Object.keys(all).forEach(d0=>{ (all[d0]||[]).forEach(it=>{ const n=it.periodDays||1; if(n>1){ let cur=d0; const end=addDays(d0,n-1); while(cur<=end){ const p=cur.split('-').map(Number); if(p[0]===y && (p[1]-1)===m){ const cell=view.querySelector('.cal .day[data-date="'+cur+'"]'); if(cell) cell.classList.add('inrange'); } cur=addDays(cur,1); } } }); }); })();
   $('#prevM').onclick=()=>{ if(m===0){state.viewMonth=11;state.viewYear--;}else state.viewMonth--; refreshDashboard(); renderMonth(); };
   $('#nextM').onclick=()=>{ if(m===11){state.viewMonth=0;state.viewYear++;}else state.viewMonth++; refreshDashboard(); renderMonth(); };
-  $$('.cal .day[data-date]').forEach(el=>{ el.onclick=()=>{ state.selDate=el.dataset.date; renderMonth(); }; });
+  $$('.cal .day[data-date]').forEach(el=>{ el.onclick=()=>{ state.selDate=el.dataset.date; renderMonth(); }; el.ondblclick=e=>{ e.preventDefault(); showDayModal(el.dataset.date); }; });
   if(!state.selDate) state.selDate=todayKey();
   renderDayPanel(state.selDate);
   renderPeriodPanel();
@@ -973,6 +973,36 @@ function renderDayPanel(ds){
     box.querySelector('.chk').onchange=e=>{ it.done=e.target.checked; if(it.done) it.progress=100; it.updatedAt=nowISO(); saveMonthItem(ds,it); };
     $$('.subtask input', box).forEach(cb=>{ cb.onchange=e=>{ const i=+cb.dataset.i; it.subtasks[i].done=e.target.checked; it.updatedAt=nowISO(); saveMonthItem(ds,it); }; });
   });
+}
+function showDayModal(ds){  // 双击日历某天：弹窗显示当日计划，可查看/勾选/编辑/删除/添加
+  const m=openModal({
+    title:'📆 '+ds+' 当日计划',
+    body:document.createElement('div'),
+    actions:[{label:'关闭', onClick:c=>{ c(); }}, {label:'添加任务', primary:true, onClick:c=>{ c(); monthItemEdit(null, ds); }}]
+  });
+  const renderList=()=>{
+    const plan=Store.get(KEY.month,{})||{}; const arr=plan[ds]||[];
+    let html='';
+    if(!arr.length){ html='<div class="empty">这一天还没有计划任务，点下方「添加任务」新增</div>'; m.body.innerHTML=html; return; }
+    arr.forEach(it=>{
+      const subs=(it.subtasks||[]).map((s,i)=>'<label class="subtask '+(s.done?'done':'')+'"><input type="checkbox" data-i="'+i+'" '+(s.done?'checked':'')+'> <span>'+escapeHtml(s.text)+'</span></label>').join('');
+      html+='<div class="ditem" data-id="'+it.id+'">'+
+        '<div class="top"><input type="checkbox" class="chk" '+(it.done?'checked':'')+'>'+
+          '<div class="ttl '+(it.done?'done':'')+'">'+escapeHtml(it.text)+'</div>'+
+          priTag(it.priority||'mid')+(it.category?'<span class="tag cat">'+escapeHtml(it.category)+'</span>':'')+'</div>'+
+        '<div class="meta row" style="margin-top:6px"><div class="progress"><i style="width:'+(it.progress||0)+'%"></i></div><span class="progress-num">'+(it.progress||0)+'%</span>'+
+          opBtn('编辑','sm',()=>{ m.close(); monthItemEdit(it, ds); })+opBtn('复制待办','sm',()=>{ copyMonthToTodo(it); renderList(); })+opBtn('删','sm danger',()=>{ delMonth(it, ds); renderList(); })+'</div>'+
+        (subs?'<div class="subtasks">'+subs+'</div>':'')+
+      '</div>';
+    });
+    m.body.innerHTML=html;
+    $$('.ditem', m.body).forEach(box=>{
+      const id=box.dataset.id; const it=arr.find(x=>x.id===id); if(!it) return;
+      box.querySelector('.chk').onchange=e=>{ it.done=e.target.checked; if(it.done) it.progress=100; it.updatedAt=nowISO(); saveMonthItem(ds,it); renderList(); };
+      $$('.subtask input', box).forEach(cb=>{ cb.onchange=e=>{ const i=+cb.dataset.i; it.subtasks[i].done=e.target.checked; it.updatedAt=nowISO(); saveMonthItem(ds,it); }; });
+    });
+  };
+  renderList();
 }
 function saveMonthItem(ds, it){
   if(isComplete(it) && !it.completedAt) it.completedAt=nowISO();  // 完成时记完成时间（供延迟归档判断）
