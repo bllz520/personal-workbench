@@ -770,7 +770,14 @@ function renderTodo(){
   const box=$('#todoList');
   const total=list.length+monthItems.length;
   if(!total){ box.innerHTML='<div class="empty">暂无待办，点右上角「新建」开始吧</div>'; }
-  else { list.forEach(it=>box.appendChild(todoRow(it))); monthItems.forEach(it=>box.appendChild(todoRowMonth(it, it.ds))); }
+  else {
+    // 排序：未完成置顶（保持原顺序），已完成按任务创建时间（createdAt）升序排列在其下
+    const all=[];
+    list.forEach(it=>all.push({row:()=>todoRow(it), done:isComplete(it), t:it.createdAt||''}));
+    monthItems.forEach(m=>all.push({row:()=>todoRowMonth(m, m.ds), done:isComplete(m), t:m.createdAt||''}));
+    all.sort((a,b)=>{ if(a.done!==b.done) return a.done?1:-1; if(a.done) return a.t<b.t?-1:(a.t>b.t?1:0); return 0; });
+    all.forEach(x=>box.appendChild(x.row()));
+  }
   renderTodayPeriod(); checkArchiveDue();
 }
 function renderTodayPeriod(){
