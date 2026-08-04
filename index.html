@@ -139,8 +139,8 @@ a{color:var(--brand); text-decoration:none}
 .tab.active{color:var(--brand); border-bottom-color:var(--brand); font-weight:600}
 
 /* table */
-.table-wrap{overflow-x:auto; border:1px solid var(--line); border-radius:12px; background:var(--panel)}
-table{width:100%; border-collapse:collapse; font-size:13px}
+.table-wrap{overflow-x:auto; border:1px solid var(--line); border-radius:12px; background:var(--panel); -webkit-overflow-scrolling:touch; touch-action:pan-x pan-y; overscroll-behavior-x:contain}
+table{width:100%; min-width:max-content; border-collapse:collapse; font-size:13px}
 th,td{padding:10px 12px; text-align:left; border-bottom:1px solid var(--line); white-space:nowrap}
 th{background:var(--panel-2); font-weight:600; color:var(--ink-2); position:sticky; top:0}
 tr:last-child td{border-bottom:none}
@@ -308,6 +308,7 @@ td .ops{display:flex; gap:6px}
   .cal .day .dnum{font-size:12px}
   .cal .dow{font-size:11px}
   th,td{padding:9px 10px}
+  th{position:static} /* 移动端去掉 sticky 表头，避免干扰触摸横向滑动 */
   .overlay{padding:0; align-items:flex-end}
   .modal{width:100%; max-height:92vh; border-radius:16px 16px 0 0; animation:slideup .22s ease}
   .modal.wide,.modal.full{width:100%}
@@ -416,7 +417,8 @@ function fallbackCopy(t){ const ta=document.createElement('textarea'); ta.value=
 const KEY={
   todo:'todayTodos', month:'monthlyPlan', year:'yearlyArchive',
   ip:'ipDevices', acc:'encryptedAccounts', url:'encryptedUrls',
-  dev:'deviceMaintenance', net:'networkMaintenance', know:'knowledge'
+  dev:'deviceMaintenance', net:'networkMaintenance', know:'knowledge',
+  remote:'encryptedRemote'
 };
 const Store={
   get(k,d){ try{ const v=localStorage.getItem(k); return v==null? (d===undefined?null:d) : JSON.parse(v); }catch(e){ return d; } },
@@ -653,13 +655,14 @@ const NAV=[
   {id:'info', ico:'🖥️', label:'信息化管理', group:true, children:[
     {id:'ip', ico:'🌐', label:'公司网络IP'},
     {id:'urls', ico:'🌍', label:'公司网址'},
+    {id:'remote', ico:'🔗', label:'远程管理'},
     {id:'devm', ico:'🔧', label:'设备运维记录'},
     {id:'netm', ico:'🌐', label:'网络维护记录'}
   ]},
   {id:'know', ico:'📁', label:'知识库'},
   {id:'week', ico:'📄', label:'周报导出'}
 ];
-const TITLES={home:'个人工作台',dash:'数据看板',todo:'今日待办',month:'月度计划',year:'年度回顾',ip:'公司网络IP',urls:'公司网址',devm:'设备运维记录',netm:'网络维护记录',know:'知识库',week:'周报导出'};
+const TITLES={home:'个人工作台',dash:'数据看板',todo:'今日待办',month:'月度计划',year:'年度回顾',ip:'公司网络IP',urls:'公司网址',remote:'远程管理',devm:'设备运维记录',netm:'网络维护记录',know:'知识库',week:'周报导出'};
 function buildNav(){
   const nav=$('#nav'); nav.innerHTML='';
   NAV.forEach(n=>{
@@ -700,7 +703,7 @@ function render(){
   refreshDashboard();
   const v=state.view;
   const map={home:renderHome,dash:renderDash,todo:renderTodo,month:renderMonth,year:renderYear,
-    ip:renderIP,urls:renderUrls,devm:renderDevm,netm:renderNetm,know:renderKnow,week:renderWeek};
+  ip:renderIP,urls:renderUrls,remote:renderRemote,devm:renderDevm,netm:renderNetm,know:renderKnow,week:renderWeek};
   (map[v]||renderHome)();
 }
 
@@ -1429,7 +1432,7 @@ let devFilter='';
 function renderDevm(){
   const view=$('#view'); const all=Store.get(KEY.dev,[])||[];
   const q=devFilter.trim().toLowerCase();
-  const list=q? all.filter(d=>[d.deviceName,d.type,d.model,d.serialNumber,d.location,status].join(' ').toLowerCase().includes(q)) : all;
+  const list=q? all.filter(d=>[d.deviceName,d.type,d.model,d.serialNumber,d.location,d.status].join(' ').toLowerCase().includes(q)) : all;
   const total=all.length; const replacements=all.reduce((s,d)=>s+(d.replacementRecords?d.replacementRecords.length:0),0);
   const expiring=all.filter(d=>d.warrantyExpire && new Date(d.warrantyExpire)<new Date(Date.now()+1000*60*60*24*30) && new Date(d.warrantyExpire)>=new Date()).length;
   view.innerHTML=
@@ -1562,6 +1565,75 @@ function netEdit(it){
   ]});
 }
 async function delNet(n){ if(await confirmModal('删除该网络故障记录？')){ Store.set(KEY.net,(Store.get(KEY.net,[])||[]).filter(x=>x.id!==n.id)); renderNetm(); toast('已删除','ok'); } }
+
+/* ============== 远程管理（加密） ============== */
+let remoteFilter='';
+const remoteRevealed={};  // 密码脱敏：临时显示明文
+async function renderRemote(){
+  const view=$('#view');
+  view.innerHTML=
+    '<div class="view-head"><h2>🔗 远程管理</h2><div class="spacer"></div>'+btn('+ 新增记录','primary',()=>remoteEdit(null))+'</div>'+
+    '<div class="row" style="margin-bottom:12px"><input class="search" id="remoteSearch" placeholder="搜索 软件名称/识别码/备注"></div>'+
+    '<div class="grid cols-2" id="remoteGrid"></div>';
+  const q=remoteFilter.trim().toLowerCase();
+  let arr=await loadEncrypted(KEY.remote);
+  if(arr===null){
+    if(!(window.CryptoJS || (window.crypto && window.crypto.subtle))){ $('#remoteGrid').innerHTML='<div class="empty">加密库未加载，请联网后重试</div>'; return; }
+    arr=await unlockOrNull(KEY.remote);
+    if(arr===null){ $('#remoteGrid').innerHTML='<div class="empty">已取消解锁</div>'; return; }
+  } else if(arr.length===0){
+    if(Sync.isConfigured()){ await Sync.pullAll(); arr=await loadEncrypted(KEY.remote); }
+    if(arr===null){ arr=await unlockOrNull(KEY.remote); if(arr===null){ $('#remoteGrid').innerHTML='<div class="empty">已取消解锁</div>'; return; } }
+    if(arr.length===0){
+      $('#remoteGrid').innerHTML='<div class="empty">暂无远程软件记录。<br>点右上角「新增记录」登记远程软件的设备识别码与密码。</div>'; return;
+    }
+  }
+  const shown = q ? arr.filter(r=>[r.name,r.code,r.note].join(' ').toLowerCase().includes(q)) : arr;
+  const grid=$('#remoteGrid');
+  if(!shown.length){ grid.innerHTML='<div class="empty">无匹配记录</div>'; return; }
+  shown.forEach(r=>{
+    const el=document.createElement('div'); el.className='card';
+    const show=remoteRevealed[r.id];
+    let html='<div class="row" style="justify-content:space-between"><b>'+escapeHtml(r.name||'')+'</b></div>'+
+      '<div class="row" style="margin:8px 0 0;gap:6px;align-items:center"><span class="muted" style="font-size:12px">识别码</span><span class="mono" style="flex:1;word-break:break-all">'+escapeHtml(r.code||'')+'</span>'+(r.code?btn('复制','sm',()=>copyText(r.code)):'')+'</div>'+
+      '<div class="row" style="margin:8px 0 0;gap:6px;align-items:center"><span class="muted" style="font-size:12px">密码</span><span class="mono">'+(show?escapeHtml(r.pass||''):'******')+'</span>'+
+        btn(show?'隐藏':'显示','sm',()=>toggleRemotePwd(r))+(r.pass?btn('复制密码','sm',()=>copyText(r.pass)):'')+'</div>';
+    if(r.note) html+='<div class="muted" style="font-size:12px;margin-top:6px;white-space:pre-wrap">备注：'+escapeHtml(r.note)+'</div>';
+    html+='<div class="row" style="margin-top:10px">'+btn('编辑','sm',()=>remoteEdit(r))+btn('删','sm danger',()=>delRemote(r))+'</div>';
+    el.innerHTML=html;
+    grid.appendChild(el);
+  });
+  const s=$('#remoteSearch'); if(s) s.oninput=async e=>{ remoteFilter=e.target.value; await renderRemote(); };
+}
+function toggleRemotePwd(r){ remoteRevealed[r.id]=!remoteRevealed[r.id]; renderRemote(); }
+async function remoteEdit(it){
+  await MasterKey.ensure().catch(()=>{}); if(!MasterKey.get()) return;
+  const isNew=!it;
+  const r=it||{name:'',code:'',pass:'',note:''};
+  const body=document.createElement('div');
+  body.innerHTML=
+    '<div class="field"><label>软件名称（如 向日葵/ToDesk/TeamViewer）</label><input id="r_name" value="'+escapeHtml(r.name||'')+'"></div>'+
+    '<div class="field"><label>设备识别码</label><input id="r_code" class="mono" value="'+escapeHtml(r.code||'')+'" placeholder="如 842 361 925"></div>'+
+    '<div class="field"><label>密码 / 验证码</label><input id="r_pass" type="password" value="'+escapeHtml(r.pass||'')+'"></div>'+
+    '<div class="field"><label>备注</label><textarea id="r_note" rows="2" placeholder="如：财务室电脑、机房主机、收银机...">'+escapeHtml(r.note||'')+'</textarea></div>';
+  openModal({ title:isNew?'新增远程记录':'编辑远程记录', body, actions:[
+    {label:'取消', onClick:c=>c()},
+    {label:'保存', primary:true, onClick:async c=>{
+      const name=$('#r_name').value.trim(); if(!name){toast('软件名称必填','err');return;}
+      const obj={id:isNew?uid():it.id, name, code:$('#r_code').value.trim(), pass:$('#r_pass').value, note:$('#r_note').value.trim(), createdAt:isNew?nowISO():(it.createdAt||nowISO()), updatedAt:nowISO()};
+      let arr=await loadEncrypted(KEY.remote); if(arr===null) arr=[];
+      if(isNew) arr.unshift(obj); else arr=arr.map(x=>x.id===obj.id?obj:x);
+      try{ await saveEncrypted(KEY.remote, arr); c(); await renderRemote(); toast('已加密保存','ok'); }catch(e){ toast('保存失败','err'); }
+    }}
+  ]});
+}
+async function delRemote(r){
+  if(await confirmModal('删除远程记录「'+(r.name||'')+'」？')){
+    let arr=await loadEncrypted(KEY.remote); if(arr===null) arr=[];
+    arr=arr.filter(x=>x.id!==r.id);
+    try{ await saveEncrypted(KEY.remote, arr); delete remoteRevealed[r.id]; await renderRemote(); toast('已删除','ok'); }catch(e){ toast('删除失败','err'); }
+  }
+}
 
 /* ============== 知识库 ============== */
 let knowFilter='';
