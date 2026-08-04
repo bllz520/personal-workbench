@@ -130,6 +130,7 @@ a{color:var(--brand); text-decoration:none}
 .tag.sev-mid{background:var(--amber-soft); color:var(--amber)}
 .tag.sev-low{background:var(--green-soft); color:var(--green)}
 .item .ops{display:flex; gap:6px; flex:none}
+.item.overdue{border-left:3px solid #f59e0b}
 .empty{padding:40px; text-align:center; color:var(--ink-2); border:1px dashed var(--line-2); border-radius:12px}
 
 /* tabs */
@@ -627,7 +628,9 @@ function monthItems(y,m){
 }
 function refreshDashboard(){
   const todos=Store.get(KEY.todo, [])||[];
-  const todoTotal=todos.length, todoDone=todos.filter(t=>t.done).length;
+  const t=todayKey(); const plan0=Store.get(KEY.month,{})||{};
+  const mt=(plan0[t]||[]).filter(it=>(it.periodDays||1)<=1);
+  const todoTotal=todos.length+mt.length, todoDone=todos.filter(t=>t.done).length+mt.filter(isComplete).length;
   const items=monthItems(state.viewYear, state.viewMonth);
   const mTotal=items.length;
   const mDone=items.filter(isComplete).length;
@@ -747,17 +750,28 @@ function renderDash(){
 function statBox(t,v,s){ return '<div class="stat-pill" style="flex:1;min-width:160px"><span class="muted" style="font-size:12px">'+t+'</span><b>'+v+'</b><span class="muted" style="font-size:12px">'+s+'</span></div>'; }
 
 /* ============== 今日待办 ============== */
+function activeMonthItems(){ // 今日待办中展示的月度项：全部未完成 + 完成未满7天（单日项，跨日期）
+  const plan=Store.get(KEY.month,{})||{}; const out=[];
+  Object.keys(plan).forEach(d=> (plan[d]||[]).forEach(it=>{
+    if((it.periodDays||1)>1) return;                       // 周期项走「今日周期计划」区块
+    if(isComplete(it)){ const ca=it.completedAt?new Date(it.completedAt).getTime():0; if(ca && Date.now()-ca>=7*86400000) return; } // 完成满7天已归档，移出
+    out.push({ds:d, ...it});
+  }));
+  return out;
+}
 function renderTodo(){
   const view=$('#view');
   const list=Store.get(KEY.todo,[])||[];
+  const monthItems=activeMonthItems();
   view.innerHTML=
     '<div class="view-head"><h2>📋 今日待办</h2><div class="spacer"></div>'+btn('+ 新建','primary',()=>todoEdit(null))+'</div>'+
     '<div class="list" id="todoList"></div>'+
     '<div id="todayPeriod" style="margin-top:18px"></div>';
   const box=$('#todoList');
-  if(!list.length){ box.innerHTML='<div class="empty">暂无待办，点右上角「新建」开始吧</div>'; }
-  else list.forEach(it=>box.appendChild(todoRow(it)));
-  renderTodayPeriod();
+  const total=list.length+monthItems.length;
+  if(!total){ box.innerHTML='<div class="empty">暂无待办，点右上角「新建」开始吧</div>'; }
+  else { list.forEach(it=>box.appendChild(todoRow(it))); monthItems.forEach(it=>box.appendChild(todoRowMonth(it, it.ds))); }
+  renderTodayPeriod(); checkArchiveDue();
 }
 function renderTodayPeriod(){
   const box=$('#todayPeriod'); if(!box) return;
@@ -790,6 +804,18 @@ function todoRow(it){
       '<span>'+fmtTime(it.createdAt)+'</span></div></div>'+
     '<div class="ops">'+opBtn('复制','sm',()=>copyTodoToMonth(it))+opBtn('编辑','sm',()=>todoEdit(it))+opBtn('删','sm danger',()=>delTodo(it))+'</div>';
   row.querySelector('.chk').onchange=e=>{ it.done=e.target.checked; Store.set(KEY.todo, Store.get(KEY.todo,[]).map(x=>x.id===it.id?it:x)); if(it.linkId) syncLinkDone(it); refreshDashboard(); toast('已更新','ok'); };
+  return row;
+}
+function todoRowMonth(it, ds){
+  const row=document.createElement('div');
+  const overdue=ds<todayKey() && !isComplete(it);
+  row.className='item'+(isComplete(it)?' done':'')+(overdue?' overdue':'');
+  row.innerHTML=
+    '<input type="checkbox" class="chk" '+(isComplete(it)?'checked':'')+'>'+
+    '<div class="body"><div class="title '+(isComplete(it)?'done':'')+'">'+escapeHtml(it.text)+'</div>'+
+      '<div class="meta">📅 月度 · '+ds+(overdue?' · ⏰逾期':'')+(it.category?' · '+escapeHtml(it.category):'')+(it.repeat==='monthly'?' · 🔁每月':'')+'</div></div>'+
+    '<div class="ops">'+opBtn('去月度','sm',()=>{ const p=ds.split('-'); state.viewYear=+p[0]; state.viewMonth=+p[1]-1; state.selDate=ds; go('month'); })+opBtn('删','sm danger',()=>delMonth(it, ds))+'</div>';
+  row.querySelector('.chk').onchange=e=>{ const done=e.target.checked; const obj={...it, done, progress:done?100:(it.progress||0)}; if(done && !it.completedAt) obj.completedAt=nowISO(); saveMonthItem(ds, obj); refreshDashboard(); renderTodo(); };
   return row;
 }
 function fmtTime(iso){ if(!iso) return ''; const d=new Date(iso); const p=n=>String(n).padStart(2,'0'); return p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); }
@@ -860,8 +886,9 @@ function renderMonth(){
     const dots=arr.slice(0,3).map(it=>'<span class="dot" title="'+escapeHtml(it.text)+'"></span>').join('');
     const mini=arr[0]?('<div class="mini">'+escapeHtml(arr[0].text)+'</div>'):'';
     const hasPeriod=arr.some(it=>(it.periodDays||1)>1);
+    const hasMonthly=arr.some(it=>it.repeat==='monthly');
     const cls='day'+(ds===tKey?' today':'')+(state.selDate===ds?' sel':'')+(hasPeriod?' inrange-start':'');
-    html+='<div class="'+cls+'" data-date="'+ds+'"><div class="dnum">'+d+(hasPeriod?'<span class="pbadge">🔁</span>':'')+'</div>'+mini+
+    html+='<div class="'+cls+'" data-date="'+ds+'"><div class="dnum">'+d+(hasPeriod?'<span class="pbadge">🔁</span>':'')+(hasMonthly?'<span class="pbadge">🔁月</span>':'')+'</div>'+mini+
       '<div class="dots">'+dots+(arr.length>3?'<span class="muted" style="font-size:10px">+'+(arr.length-3)+'</span>':'')+'</div>'+
       (arr.length?'<div class="pct">'+rate+'%</div>':'')+'</div>';
   }
@@ -928,12 +955,12 @@ function renderDayPanel(ds){
   });
 }
 function saveMonthItem(ds, it){
+  if(isComplete(it) && !it.completedAt) it.completedAt=nowISO();  // 完成时记完成时间（供延迟归档判断）
   const plan=Store.get(KEY.month,{})||{}; const arr=plan[ds]||[];
   const idx=arr.findIndex(x=>x.id===it.id);
   if(idx>=0) arr[idx]=it; else arr.push(it);
   plan[ds]=arr; Store.set(KEY.month, plan);
-  // 自动归档
-  if(isComplete(it)){ archiveMonthItem(ds, it); }
+  // 完成不再立即归档；满7天后由 checkArchiveDue() 自动归档到年度回顾
   refreshDashboard(); renderMonth();
 }
 function archiveMonthItem(ds, it){
@@ -945,17 +972,44 @@ function archiveMonthItem(ds, it){
   const plan=Store.get(KEY.month,{})||{}; if(plan[ds]){ plan[ds]=plan[ds].filter(x=>x.id!==it.id); if(!plan[ds].length) delete plan[ds]; Store.set(KEY.month, plan); }
   toast('已完成任务已归档到年度回顾','ok');
 }
+function checkArchiveDue(){  // 扫描「完成满7天」的月度项，自动归档到年度回顾并从月度移除
+  const plan=Store.get(KEY.month,{})||{}; const year=Store.get(KEY.year,[])||[];
+  let mChanged=false, yChanged=false;
+  Object.keys(plan).forEach(d=>{ const keep=[];
+    (plan[d]||[]).forEach(it=>{
+      if(isComplete(it) && it.completedAt && Date.now()-new Date(it.completedAt).getTime()>=7*86400000){
+        if(!year.find(a=>a.id===it.id)){ year.unshift({id:it.id, title:it.text, category:it.category||'未分类', sourceDate:d, completedAt:it.completedAt, subtasks:it.subtasks||[], archivedAt:nowISO()}); yChanged=true; }
+        mChanged=true;
+      } else keep.push(it);
+    });
+    if(keep.length!==(plan[d]||[]).length){ if(keep.length) plan[d]=keep; else delete plan[d]; }
+  });
+  if(yChanged) Store.set(KEY.year, year);
+  if(mChanged){ Store.set(KEY.month, plan); refreshDashboard(); if(state.view==='month') renderMonth(); }
+}
 function copyMonthToTodo(it){
   const todos=Store.get(KEY.todo,[]);
   if(todos.find(t=>t.linkId===it.id)){ toast('已存在关联待办','info'); return; }
   todos.unshift({id:uid(), text:it.text, done:it.done, priority:it.priority||'mid', createdAt:nowISO(), linkId:it.id});
   Store.set(KEY.todo, todos); toast('已复制到今日待办','ok'); refreshDashboard();
 }
-async function delMonth(it, ds){
-  if(await confirmModal('确定删除该月度任务「'+it.text+'」？')){
-    const plan=Store.get(KEY.month,{})||{}; if(plan[ds]){ plan[ds]=plan[ds].filter(x=>x.id!==it.id); if(!plan[ds].length) delete plan[ds]; Store.set(KEY.month, plan); }
-    refreshDashboard(); renderMonth(); toast('已删除','ok');
+function removeRepeatGroup(gid){  // 删除某组「每月重复」计划的全部月份副本
+  const plan=Store.get(KEY.month,{})||{};
+  Object.keys(plan).forEach(d=>{ plan[d]=plan[d].filter(x=>x.repeatGroup!==gid); if(!plan[d].length) delete plan[d]; });
+  Store.set(KEY.month, plan);
+}
+function delMonth(it, ds){
+  if(it.repeatGroup){  // 每月重复计划：删除范围二选一
+    const body=document.createElement('div');
+    body.innerHTML='<div class="warn" style="margin-bottom:8px">该计划为「每月重复」，请选择删除范围：</div>';
+    openModal({ title:'删除重复计划', body, actions:[
+      {label:'仅删本月', onClick:c=>{ const plan=Store.get(KEY.month,{})||{}; if(plan[ds]){ plan[ds]=plan[ds].filter(x=>x.id!==it.id); if(!plan[ds].length) delete plan[ds]; Store.set(KEY.month,plan);} c(); refreshDashboard(); renderMonth(); toast('已删除本月','ok'); }},
+      {label:'删除全年重复', danger:true, onClick:c=>{ removeRepeatGroup(it.repeatGroup); c(); refreshDashboard(); renderMonth(); toast('已删除全年重复','ok'); }},
+      {label:'取消', onClick:c=>c()}
+    ]});
+    return;
   }
+  confirmModal('确定删除该月度任务「'+it.text+'」？').then(ok=>{ if(ok){ const plan=Store.get(KEY.month,{})||{}; if(plan[ds]){ plan[ds]=plan[ds].filter(x=>x.id!==it.id); if(!plan[ds].length) delete plan[ds]; Store.set(KEY.month, plan); } refreshDashboard(); renderMonth(); toast('已删除','ok'); } });
 }
 function monthItemEdit(it, ds){
   const isNew=!it; const data=it||{text:'',priority:'mid',progress:0,category:'',subtasks:[],periodDays:1};
@@ -967,6 +1021,10 @@ function monthItemEdit(it, ds){
     '<div class="field"><label>完成进度：<b id="m_prv">'+(data.progress||0)+'%</b></label><input type="range" id="m_pro" min="0" max="100" value="'+(data.progress||0)+'" style="width:100%"></div>'+
     '<div class="field"><label>持续天数（1=仅当天，&gt;1 为跨天周期计划）</label><input type="number" id="m_days" min="1" step="1" value="'+(data.periodDays||1)+'" style="width:100%"></div>'+
     '<div class="hint" id="m_endhint"></div>'+
+    '<div class="field"><label>重复</label><select id="m_rep">'+
+      '<option value="none"'+(data.repeat!=='monthly'?' selected':'')+'>不重复</option>'+
+      '<option value="monthly"'+(data.repeat==='monthly'?' selected':'')+'>每月重复</option></select></div>'+
+    '<div class="field"><label>重复日（每月几号，1-31）</label><input type="number" id="m_rday" min="1" max="31" value="'+(data.repeatDay||+ds.split('-')[2])+'" style="width:100%"></div>'+
     '<div class="field"><label>子任务（每行一个）</label><textarea id="m_sub">'+escapeHtml((data.subtasks||[]).map(s=>s.text).join('\n'))+'</textarea></div>';
   openModal({ title:isNew?'新建月度任务':'编辑月度任务', body, size:'', actions:[
     {label:'取消', onClick:c=>c()},
@@ -976,14 +1034,30 @@ function monthItemEdit(it, ds){
       const subText=$('#m_sub').value.split('\n').map(s=>s.trim()).filter(Boolean);
       const oldSubs=data.subtasks||[];
       const subtasks=subText.map((t,i)=>oldSubs[i]&&oldSubs[i].text===t?oldSubs[i]:{text:t,done:false});
-      const obj={id:isNew?uid():it.id, text, done:progress>=100, priority:$('#m_pri').value, progress, category:$('#m_cat').value.trim(), subtasks, periodDays:Math.max(1, parseInt($('#m_days').value||'1',10)||1), createdAt:isNew?nowISO():data.createdAt, updatedAt:nowISO()};
-      saveMonthItem(ds, obj); c(); toast('已保存','ok');
+      const rep=$('#m_rep').value;
+      const rday=Math.min(31, Math.max(1, parseInt($('#m_rday').value||'1',10)||1));
+      const base={text, done:progress>=100, priority:$('#m_pri').value, progress, category:$('#m_cat').value.trim(), subtasks, periodDays:Math.max(1, parseInt($('#m_days').value||'1',10)||1), createdAt:isNew?nowISO():data.createdAt, updatedAt:nowISO()};
+      if(rep==='monthly'){
+        // 每月重复：先清除旧组，再按重复日在当年1-12月各生成一份（2月31等自动落到月末）
+        if(it && it.repeatGroup){ removeRepeatGroup(it.repeatGroup); }
+        else if(!isNew){ const p0=Store.get(KEY.month,{})||{}; if(p0[ds]){ p0[ds]=p0[ds].filter(x=>x.id!==it.id); if(!p0[ds].length) delete p0[ds]; Store.set(KEY.month,p0); } }
+        const gid=uid(); const yr=+ds.split('-')[0];
+        for(let mo=1; mo<=12; mo++){ const dim=new Date(yr,mo,0).getDate(); const day=Math.min(rday,dim); const d=yr+'-'+String(mo).padStart(2,'0')+'-'+String(day).padStart(2,'0'); const obj={...base, id:uid(), repeat:'monthly', repeatDay:rday, repeatGroup:gid}; const plan=Store.get(KEY.month,{})||{}; const arr=plan[d]||[]; arr.push(obj); plan[d]=arr; Store.set(KEY.month,plan); }
+        refreshDashboard(); renderMonth();
+      } else {
+        if(it && it.repeatGroup){ removeRepeatGroup(it.repeatGroup); }  // 从「每月重复」改为不重复：清旧组
+        saveMonthItem(ds, {...base, id:isNew?uid():it.id});
+      }
+      c(); toast('已保存','ok');
     }}
   ]});
   const rng=$('#m_pro'); rng.oninput=()=>{ $('#m_prv').textContent=rng.value+'%'; };
   const daysInput=$('#m_days'); const endHint=$('#m_endhint');
   const updEnd=()=>{ const n=Math.max(1, parseInt(daysInput.value||'1',10)||1); const end=addDays(ds, n-1); endHint.textContent = n>1 ? ('📅 周期：'+ds+' ~ '+end+'（共 '+n+' 天）') : '仅当天生效'; };
   daysInput.oninput=updEnd; updEnd();
+  const repSel=$('#m_rep'); const rdayInput=$('#m_rday');
+  const updRep=()=>{ const on=repSel.value==='monthly'; rdayInput.disabled=!on; rdayInput.style.opacity=on?'1':'0.5'; };
+  repSel.onchange=updRep; updRep();
 }
 function genMonthSummary(){
   const y=state.viewYear, m=state.viewMonth; const items=monthItems(y,m);
@@ -1863,6 +1937,7 @@ function init(){
       } else { _exitArmed=false; }
     });
   }
+  checkArchiveDue();  // 打开应用时检查「完成满7天」的月度项并自动归档
   go('home');
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
