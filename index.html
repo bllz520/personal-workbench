@@ -389,7 +389,7 @@ td .ops{display:flex; gap:6px}
 <nav class="tabbar" id="tabbar">
   <button class="tab" data-id="home"><span class="ic">🏠</span><span>首页</span></button>
   <button class="tab" data-id="todo"><span class="ic">📋</span><span>待办</span></button>
-  <button class="tab" data-id="dash"><span class="ic">📊</span><span>看板</span></button>
+  <button class="tab" data-id="month"><span class="ic">📅</span><span>月度</span></button>
   <button class="tab" data-id="know"><span class="ic">📁</span><span>知识</span></button>
   <button class="tab" data-id="__more"><span class="ic">☰</span><span>更多</span></button>
 </nav>
@@ -738,7 +738,6 @@ async function importAllData(){
 /* ============================ 导航 ============================ */
 const NAV=[
   {id:'home', ico:'🏠', label:'个人工作台'},
-  {id:'dash', ico:'📊', label:'数据看板'},
   {id:'todo', ico:'📋', label:'今日待办'},
   {id:'month', ico:'📅', label:'月度计划'},
   {id:'year', ico:'📚', label:'年度回顾'},
@@ -752,7 +751,7 @@ const NAV=[
   {id:'know', ico:'📁', label:'知识库'},
   {id:'week', ico:'📄', label:'周报导出'}
 ];
-const TITLES={home:'个人工作台',dash:'数据看板',todo:'今日待办',month:'月度计划',year:'年度回顾',ip:'公司网络IP',urls:'公司网址',remote:'远程管理',devm:'设备运维记录',netm:'网络维护记录',know:'知识库',week:'周报导出'};
+const TITLES={home:'个人工作台',todo:'今日待办',month:'月度计划',year:'年度回顾',ip:'公司网络IP',urls:'公司网址',remote:'远程管理',devm:'设备运维记录',netm:'网络维护记录',know:'知识库',week:'周报导出'};
 function buildNav(){
   const nav=$('#nav'); nav.innerHTML='';
   NAV.forEach(n=>{
@@ -785,32 +784,39 @@ function buildNav(){
   nav.appendChild(statNav);
 }
 function setActiveNav(id){ $$('.nav-item').forEach(e=>e.classList.toggle('active', e.dataset.id===id)); }
-function setActiveTab(id){ $$('.tabbar .tab').forEach(t=>{ const tid=t.dataset.id; t.classList.toggle('active', tid===id || (tid==='__more' && !['home','todo','dash','know'].includes(id))); }); }
+function setActiveTab(id){ $$('.tabbar .tab').forEach(t=>{ const tid=t.dataset.id; t.classList.toggle('active', tid===id || (tid==='__more' && !['home','todo','month','know'].includes(id))); }); }
 function go(id, push){ const _cur=state.view; state.view=id; setActiveNav(id); setActiveTab(id); $('#viewTitle').textContent=TITLES[id]||''; $('#sidebar').classList.remove('open'); const bd=$('.backdrop'); if(bd) bd.remove(); render(); if(push!==false && 'pushState' in history && id!==_cur){ try{ history.pushState({view:id}, ''); }catch(e){} } }
 
 /* ============================ 渲染调度 ============================ */
 function render(){
   refreshDashboard();
   const v=state.view;
-  const map={home:renderHome,dash:renderDash,todo:renderTodo,month:renderMonth,year:renderYear,
+  const map={home:renderHome,todo:renderTodo,month:renderMonth,year:renderYear,
   ip:renderIP,urls:renderUrls,remote:renderRemote,devm:renderDevm,netm:renderNetm,know:renderKnow,week:renderWeek};
   (map[v]||renderHome)();
 }
 
-/* ============== 个人工作台首页 ============== */
+/* ============== 个人工作台首页（概览 + 入口） ============== */
 function renderHome(){
   const view=$('#view');
   const todos=Store.get(KEY.todo,[])||[];const items=monthItems(state.viewYear, state.viewMonth);
   const done=items.filter(isComplete).length;
+  const yearList=Store.get(KEY.year,[])||[];
+  const byCat={}; yearList.forEach(a=>{ const c=a.category||'未分类'; byCat[c]=(byCat[c]||0)+1; });
+  const catHtml=Object.keys(byCat).sort().map(c=>'<span class="tag cat">'+escapeHtml(c)+' '+byCat[c]+'</span>').join(' ')||'<span class="muted">暂无归档</span>';
   view.innerHTML='<div class="view-head"><h2>👋 你好，今天也要高效推进</h2></div>';
   const grid=document.createElement('div'); grid.className='grid cols-3';
   grid.appendChild(cardClick('📋 今日待办', todos.length+' 项', '未完 '+todos.filter(t=>!t.done).length+' 项', ()=>go('todo')));
   grid.appendChild(cardClick('📅 本月计划', items.length+' 项', '完成率 '+(items.length?Math.round(done/items.length*100):0)+'%', ()=>go('month')));
+  grid.appendChild(cardClick('📚 年度归档', yearList.length+' 条', '累计完成归档', ()=>go('year')));
   view.appendChild(grid);
+  const cc=document.createElement('div'); cc.className='card'; cc.style.marginTop='14px';
+  cc.innerHTML='<h3 style="margin:0 0 10px">📊 年度归档分类分布</h3><div class="row" style="gap:6px">'+catHtml+'</div>';
+  view.appendChild(cc);
   const qc=document.createElement('div'); qc.className='card'; qc.style.marginTop='14px';
   qc.innerHTML='<h3 style="margin:0 0 10px">🚀 快捷入口</h3>';
   const row=document.createElement('div'); row.className='row';
-  row.innerHTML=[['📋 今日待办','primary','todo'],['📅 月度计划','','month'],['📁 知识库','','know'],['📄 生成周报','','week'],['🖥️ 信息化管理','','ip']]
+  row.innerHTML=[['📋 今日待办','primary','todo'],['📅 月度计划','','month'],['📚 年度回顾','','year'],['📁 知识库','','know'],['📄 生成周报','','week'],['🖥️ 信息化管理','','ip']]
     .map(([l,c,v])=>btn(l,c,()=>go(v))).join('');
   qc.appendChild(row); view.appendChild(qc);
 }
@@ -823,24 +829,6 @@ function _btnHTML(label, cls, onClick){ const id=uid(); _cbReg[id]=onClick; retu
 function btn(label, cls, onClick){ return _btnHTML(label, cls, onClick); }
 function opBtn(label, cls, onClick){ return _btnHTML(label, cls, onClick); }
 document.addEventListener('click', function(e){ const t=e.target.closest('[data-cb]'); if(t&&_cbReg[t.dataset.cb]){ _cbReg[t.dataset.cb](); } });
-
-/* ============== 数据看板 ============== */
-function renderDash(){
-  const view=$('#view');
-  const todos=Store.get(KEY.todo,[])||[];const items=monthItems(state.viewYear, state.viewMonth);
-  const mDone=items.filter(isComplete).length;
-  const byCat={}; items.forEach(it=>{ const c=it.category||'未分类'; byCat[c]=(byCat[c]||0)+1; });
-  const catHtml=Object.keys(byCat).map(c=>'<span class="tag cat">'+escapeHtml(c)+' '+byCat[c]+'</span>').join(' ') || '<span class="muted">暂无</span>';
-  view.innerHTML=
-    '<div class="view-head"><h2>📊 数据看板</h2><span class="muted">'+state.viewYear+'年'+(state.viewMonth+1)+'月</span></div>'+
-    '<div class="grid cols-2">'+
-      statBox('今日待办完成率', (todos.length?Math.round(todos.filter(t=>t.done).length/todos.length*100):0)+'%', todos.filter(t=>t.done).length+'/'+todos.length)+
-      statBox('本月计划完成率', (items.length?Math.round(mDone/items.length*100):0)+'%', mDone+'/'+items.length)+
-      statBox('年度归档', (Store.get(KEY.year,[])||[]).length+' 条', '累计归档')+
-    '</div>'+
-    '<div class="card" style="margin-top:14px"><h3 style="margin:0 0 8px">本月计划分类分布</h3>'+catHtml+'</div>';
-}
-function statBox(t,v,s){ return '<div class="stat-pill" style="flex:1;min-width:160px"><span class="muted" style="font-size:12px">'+t+'</span><b>'+v+'</b><span class="muted" style="font-size:12px">'+s+'</span></div>'; }
 
 /* ============== 今日待办 ============== */
 function activeMonthItems(){ // 今日待办月度项：当月全显示 + 过往未完成（逾期）→ 将来不显示
