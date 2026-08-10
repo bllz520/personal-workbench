@@ -664,7 +664,16 @@ function refreshDashboard(){
   const todos=Store.get(KEY.todo, [])||[];
   const t=todayKey(); const plan0=Store.get(KEY.month,{})||{};
   const mt=(plan0[t]||[]).filter(it=>(it.periodDays||1)<=1);
-  const todoTotal=todos.length+mt.length, todoDone=todos.filter(t=>t.done).length+mt.filter(isComplete).length;
+  // 今日周期计划：收集今天处于周期内或逾期的周期项，纳入完成率
+  let periodTodayDone=0, periodTodayTotal=0;
+  Object.keys(plan0).forEach(d=>{ (plan0[d]||[]).forEach(it=>{ const n=it.periodDays||1; if(n>1){
+    const end=addDays(d,n-1);
+    const inRange=t>=d&&t<=end;
+    const overdue=t>end&&!isComplete(it)&&d.slice(0,7)===t.slice(0,7);
+    if(inRange||overdue){ periodTodayTotal++; if(isComplete(it)) periodTodayDone++; }
+  }});});
+  const todoTotal=todos.length+mt.length+periodTodayTotal;
+  const todoDone=todos.filter(t=>t.done).length+mt.filter(isComplete).length+periodTodayDone;
   const items=monthItems(state.viewYear, state.viewMonth);
   const mTotal=items.length;
   const mDone=items.filter(isComplete).length;
@@ -883,7 +892,7 @@ function renderTodayPeriod(){
   const seen=new Set();
   items=items.filter(it=>{ if(it.repeatGroup){ if(seen.has(it.repeatGroup)) return false; seen.add(it.repeatGroup); return true; } return true; });
   if(!items.length){ box.innerHTML=''; return; }
-  let html='<div class="card"><div class="view-head" style="margin:0 0 10px"><h3 style="margin:0">📌 今日周期计划</h3><div class="spacer"></div><span class="muted">仅展示，不计入完成率</span></div>';
+  let html='<div class="card"><div class="view-head" style="margin:0 0 10px"><h3 style="margin:0">📌 今日周期计划</h3><div class="spacer"></div></div>';
   items.forEach(it=>{
     const total=it.periodDays||1; const elapsed=Math.max(0, Math.ceil((new Date(t)-new Date(it.ds))/86400000)); const pct=Math.min(100, Math.round(elapsed/total*100));
     const repLabel=it.repeatGroup?('🔁每月 · 每月'+(it.repeatDay||+it.ds.split('-')[2])+'号'):('🔁'+total+'天');
@@ -894,8 +903,13 @@ function renderTodayPeriod(){
         '<div class="ttl">'+escapeHtml(it.text)+'</div>'+odTag+
         priTag(it.priority||'mid')+(it.category?'<span class="tag cat">'+escapeHtml(it.category)+'</span>':'')+'</div>'+
       '<div class="meta row" style="margin-top:6px"><span class="muted">'+repMeta+'</span>'+
-        '<div class="progress" style="flex:1;margin:0 8px"><i style="width:'+pct+'%"></i></div><span class="progress-num">'+(it.overdue?'已逾期':'进行 '+pct+'%')+'</span>'+
-        btn('去月度','sm',()=>{ const p=it.ds.split('-'); state.viewYear=+p[0]; state.viewMonth=+p[1]-1; state.selDate=it.ds; go('month'); })+'</div>'+
+        '<div class="progress" style="flex:1;margin:0 8px"><i style="width:'+pct+'%"></i></div><span class="progress-num">'+(it.overdue?'已逾期':'进行 '+pct+'%')+'</span></div>'+
+      '<div class="meta row" style="margin-top:6px">'+opBtn('完成','sm primary',()=>{
+          let tds=it.ds, tit=it;
+          if(it.repeatGroup){ const c=curMonthCopy(it); if(c){ tds=c.ds; tit=c.item; } else { toast('本月副本已完成或不存在','info'); return; } }
+          tit.done=true; tit.progress=100; tit.updatedAt=nowISO(); saveMonthItem(tds, tit); refreshDashboard(); renderTodo();
+        })+opBtn('复制','sm',()=>copyMonthToTodo(it))+opBtn('编辑','sm',()=>monthItemEdit(it, it.ds))+
+        opBtn('删','sm danger',()=>delMonth(it, it.ds))+'</div>'+
     '</div>';
   });
   html+='</div>'; box.innerHTML=html;
@@ -926,7 +940,7 @@ function todoRowMonth(it, ds){
     '<input type="checkbox" class="chk" '+(isComplete(it)?'checked':'')+'>'+
     '<div class="body"><div class="title '+(isComplete(it)?'done':'')+'">'+escapeHtml(it.text)+'</div>'+
       '<div class="meta">📅 月度 · '+ds+(overdue?' · ⏰逾期':'')+(it.category?' · '+escapeHtml(it.category):'')+(it.repeat==='monthly'?' · 🔁每月':'')+'</div></div>'+
-    '<div class="ops">'+opBtn('编辑','sm',()=>monthItemEdit(it, ds))+opBtn('去月度','sm',()=>{ const p=ds.split('-'); state.viewYear=+p[0]; state.viewMonth=+p[1]-1; state.selDate=ds; go('month'); })+opBtn('删','sm danger',()=>delMonth(it, ds))+'</div>';
+    '<div class="ops">'+opBtn('完成','sm primary',()=>{const obj={...it,done:true,progress:100};if(!it.completedAt) obj.completedAt=nowISO();saveMonthItem(ds,obj);refreshDashboard();renderTodo();})+opBtn('编辑','sm',()=>monthItemEdit(it, ds))+opBtn('去月度','sm',()=>{ const p=ds.split('-'); state.viewYear=+p[0]; state.viewMonth=+p[1]-1; state.selDate=ds; go('month'); })+opBtn('删','sm danger',()=>delMonth(it, ds))+'</div>';
   row.querySelector('.chk').onchange=e=>{ const done=e.target.checked; const obj={...it, done, progress:done?100:(it.progress||0)}; if(done && !it.completedAt) obj.completedAt=nowISO(); saveMonthItem(ds, obj); refreshDashboard(); renderTodo(); };
   return row;
 }
