@@ -843,11 +843,15 @@ function renderDash(){
 function statBox(t,v,s){ return '<div class="stat-pill" style="flex:1;min-width:160px"><span class="muted" style="font-size:12px">'+t+'</span><b>'+v+'</b><span class="muted" style="font-size:12px">'+s+'</span></div>'; }
 
 /* ============== 今日待办 ============== */
-function activeMonthItems(){ // 今日待办中展示的月度项：全部未完成 + 完成未满2天（单日项，跨日期）
+function activeMonthItems(){ // 今日待办月度项：当月全显示 + 过往未完成（逾期）→ 将来不显示
   const plan=Store.get(KEY.month,{})||{}; const out=[];
+  const t=todayKey(); const curMonth=t.slice(0,7);
   Object.keys(plan).forEach(d=> (plan[d]||[]).forEach(it=>{
     if((it.periodDays||1)>1) return;                       // 周期项走「今日周期计划」区块
-    if(isComplete(it)){ const ca=it.completedAt?new Date(it.completedAt).getTime():0; if(ca && Date.now()-ca>=2*86400000) return; } // 完成满2天已归档，移出
+    const inCur=d.slice(0,7)===curMonth;
+    if(!inCur && d>=t) return;                             // 将来不显示
+    if(!inCur && isComplete(it)) return;                   // 过往已完成不显示
+    if(isComplete(it)){ const ca=it.completedAt?new Date(it.completedAt).getTime():0; if(ca && Date.now()-ca>=2*86400000) return; } // 完成满2天已归档
     out.push({ds:d, ...it});
   }));
   return out;
@@ -940,7 +944,7 @@ function todoRowMonth(it, ds){
     '<input type="checkbox" class="chk" '+(isComplete(it)?'checked':'')+'>'+
     '<div class="body"><div class="title '+(isComplete(it)?'done':'')+'">'+escapeHtml(it.text)+'</div>'+
       '<div class="meta">📅 月度 · '+ds+(overdue?' · ⏰逾期':'')+(it.category?' · '+escapeHtml(it.category):'')+(it.repeat==='monthly'?' · 🔁每月':'')+'</div></div>'+
-    '<div class="ops">'+opBtn('完成','sm primary',()=>{const obj={...it,done:true,progress:100};if(!it.completedAt) obj.completedAt=nowISO();saveMonthItem(ds,obj);refreshDashboard();renderTodo();})+opBtn('编辑','sm',()=>monthItemEdit(it, ds))+opBtn('去月度','sm',()=>{ const p=ds.split('-'); state.viewYear=+p[0]; state.viewMonth=+p[1]-1; state.selDate=ds; go('month'); })+opBtn('删','sm danger',()=>delMonth(it, ds))+'</div>';
+    '<div class="ops">'+opBtn('完成','sm primary',()=>{it.done=true;it.progress=100;it.completedAt=nowISO();it.updatedAt=nowISO();archiveMonthItem(ds,it);refreshDashboard();renderTodo();})+opBtn('编辑','sm',()=>monthItemEdit(it, ds))+opBtn('去月度','sm',()=>{ const p=ds.split('-'); state.viewYear=+p[0]; state.viewMonth=+p[1]-1; state.selDate=ds; go('month'); })+opBtn('删','sm danger',()=>delMonth(it, ds))+'</div>';
   row.querySelector('.chk').onchange=e=>{ const done=e.target.checked; const obj={...it, done, progress:done?100:(it.progress||0)}; if(done && !it.completedAt) obj.completedAt=nowISO(); saveMonthItem(ds, obj); refreshDashboard(); renderTodo(); };
   return row;
 }
