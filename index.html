@@ -1306,24 +1306,49 @@ function genMonthSummary(){
 }
 
 /* ============== 年度回顾 ============== */
+let yearFilter='';
 function renderYear(){
   const view=$('#view'); const list=Store.get(KEY.year,[])||[];
   const byCat={}; list.forEach(a=>{ byCat[a.category||'未分类']=(byCat[a.category||'未分类']||0)+1; });
-  const catHtml=Object.keys(byCat).map(c=>'<span class="tag cat">'+escapeHtml(c)+' '+byCat[c]+'</span>').join(' ') || '<span class="muted">暂无归档</span>';
+  const catChips='<span class="chip '+(!yearFilter?'active':'')+'" data-cat="">全部 '+list.length+'</span>'+
+    Object.keys(byCat).sort().map(c=>'<span class="chip '+(yearFilter===c?'active':'')+'" data-cat="'+escapeHtml(c)+'">'+escapeHtml(c)+' '+byCat[c]+'</span>').join('');
   view.innerHTML=
     '<div class="view-head"><h2>📚 年度回顾</h2><div class="spacer"></div>'+
       btn('⬇ 导出 JSON','',exportYear)+btn('🗑 清空','danger',clearYear)+'</div>'+
-    '<div class="stat-box"><div class="stat-pill"><span class="muted">归档总数</span><b>'+list.length+'</b></div>'+catHtml+'</div>'+
+    '<div class="row" style="margin-bottom:12px;gap:6px" id="yearCats">'+catChips+'</div>'+
     '<div class="list" id="yearList"></div>';
+  $$('#yearCats .chip').forEach(ch=>ch.onclick=()=>{ yearFilter=ch.dataset.cat; renderYear(); });
   const box=$('#yearList');
-  if(!list.length){ box.innerHTML='<div class="empty">暂无归档。月度计划任务完成后会自动归档到这里。</div>'; return; }
-  list.forEach(a=>{
+  const shown=yearFilter? list.filter(a=>(a.category||'未分类')===yearFilter) : list;
+  if(!shown.length){ box.innerHTML='<div class="empty">'+(yearFilter?'该分类下暂无归档':'暂无归档。月度计划任务完成后会自动归档到这里。')+'</div>'; return; }
+  shown.forEach(a=>{
     const el=document.createElement('div'); el.className='item';
     el.innerHTML='<div class="body"><div class="title">'+escapeHtml(a.title)+'</div>'+
-      '<div class="meta"><span class="tag cat">'+escapeHtml(a.category||'未分类')+'</span><span>来源：'+escapeHtml(a.sourceDate||'')+'</span><span>归档：'+fmtTime(a.archivedAt)+'</span></div></div>'+
-      '<div class="ops">'+opBtn('回退','sm',()=>rollbackYear(a))+opBtn('删','sm danger',()=>delYear(a))+'</div>';
+      '<div class="meta"><span class="tag cat" data-tag-cat="'+escapeHtml(a.id)+'">'+escapeHtml(a.category||'未分类')+'</span><span>来源：'+escapeHtml(a.sourceDate||'')+'</span><span>归档：'+fmtTime(a.archivedAt)+'</span></div></div>'+
+      '<div class="ops">'+opBtn('改分类','sm',()=>editYearCategory(a))+opBtn('回退','sm',()=>rollbackYear(a))+opBtn('删','sm danger',()=>delYear(a))+'</div>';
     box.appendChild(el);
   });
+}
+function editYearCategory(a){
+  const arr=Store.get(KEY.year,[])||[];
+  const existing=Array.from(new Set(arr.map(x=>(x.category||'').trim()).filter(Boolean)));
+  const body=document.createElement('div');
+  body.innerHTML='<div class="field"><label>当前：'+escapeHtml(a.category||'未分类')+'</label></div>'+
+    '<div class="field"><label>新分类（可输入或点选已有）</label><input id="ycat_new" value="'+escapeHtml(a.category||'')+'" placeholder="如：生产/采购/安全"></div>'+
+    (existing.length?'<div class="cat-chips">'+existing.map(c=>'<span class="chip" data-c="'+escapeHtml(c)+'">'+escapeHtml(c)+'</span>').join('')+'</div>':'');
+  openModal({ title:'更改分类 · '+a.title, body, actions:[
+    {label:'取消', onClick:c=>c()},
+    {label:'保存', primary:true, onClick:c=>{
+      const nc=($('#ycat_new').value||'').trim();
+      if(!nc){ toast('分类不能为空','err'); return; }
+      const all=Store.get(KEY.year,[])||[];
+      const idx=all.findIndex(x=>x.id===a.id);
+      if(idx>=0){ all[idx].category=nc; Store.set(KEY.year,all); }
+      c(); renderYear(); toast('已改分类','ok');
+    }}
+  ]});
+  if(existing.length){ $$('#ycat_new').forEach?$$('#ycat_new').forEach(()=>{}):0; const i=$('#ycat_new'); const chips=body.querySelectorAll('.cat-chips .chip');
+    chips.forEach(ch=>ch.onclick=()=>{ i.value=ch.dataset.c; }); }
 }
 function exportYear(){ const data=Store.get(KEY.year,[])||[]; download('年度回顾-'+todayKey()+'.json', JSON.stringify(data,null,2), 'application/json'); toast('已导出','ok'); }
 async function clearYear(){ if(await confirmModal('确定清空全部年度归档？此操作不可恢复。')){ Store.del(KEY.year); refreshDashboard(); renderYear(); toast('已清空','ok'); } }
